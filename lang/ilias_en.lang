@@ -55,12 +55,15 @@ frequency_ordinal_nd#:#nd
 frequency_ordinal_rd#:#rd
 frequency_ordinal_th#:#th
 all_users#:#All users
+all_users_except#:#All users except
+select_excluded_users#:#Select excluded users
 specific_users#:#Specific users
 users_by_role#:#Users by role
 delete_confirmation#:#Are you sure you want to delete this schedule?
 email_enabled#:#Email notifications enabled
 days_in_advance#:#Days in advance
 template#:#Template
+template_info#:#Write a email message that will be sent to the users in advance of the reset. You can use the following placeholders: [login] for the username, [name] for the user's full name, [firstname] for the user's firstname, [lastname] for the user's lastname, [date] for the date of the reset, and [time] for the time of the reset.
 notifications#:#Notifications
 frequency_type#:#Frequency type
 daily#:#Daily

@@ -7,7 +7,9 @@ namespace classes\objects;
 use DateMalformedStringException;
 use DateTime;
 use Exception;
+use ilChangeEvent;
 use ilContainerReference;
+use ilLPMarks;
 use ilObject;
 use ilObjectLP;
 use ilObjStudyProgramme;
@@ -18,6 +20,7 @@ class Schedule
     public const USERS_ALL = 1;
     public const USERS_SPECIFIC = 2;
     public const USERS_BY_ROLE = 3;
+    public const USERS_ALL_EXCEPT = 4;
 
     private int $id;
     private string $name;
@@ -34,6 +37,7 @@ class Schedule
         self::USERS_ALL => "all_users",
         self::USERS_SPECIFIC => "specific_users",
         self::USERS_BY_ROLE => "users_by_role",
+        self::USERS_ALL_EXCEPT => "all_users_except",
     ];
 
     /**
@@ -273,13 +277,27 @@ class Schedule
 
             $DIC->database()->manipulateF($query, ['integer'], [$this->id]);
 
-            foreach ($users["roles"] as $role) {
+            foreach ($users["role"] as $role) {
                 $query = /** @lang text */ "INSERT INTO silr_selected_roles (schedule_id, role_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE role_id = %s";
 
                 $DIC->database()->manipulateF(
                     $query,
                     ['integer', 'integer', 'integer'],
                     [$this->id, $role['id'], $role['id']]
+                );
+            }
+        } elseif ($this->users === self::USERS_ALL_EXCEPT) {
+            $query = /** @lang text */ "DELETE FROM silr_excluded_users WHERE schedule_id = %s";
+
+            $DIC->database()->manipulateF($query, ['integer'], [$this->id]);
+
+            foreach ($users["excluded_users"] as $user) {
+                $query = /** @lang text */ "INSERT INTO silr_excluded_users (schedule_id, user_id) VALUES (%s, %s) ON DUPLICATE KEY UPDATE user_id = %s";
+
+                $DIC->database()->manipulateF(
+                    $query,
+                    ['integer', 'integer', 'integer'],
+                    [$this->id, $user['id'], $user['id']]
                 );
             }
         }
@@ -302,10 +320,10 @@ class Schedule
 
     public function getUsersData(): array
     {
+        global $DIC;
+
         if ($this->users === self::USERS_SPECIFIC) {
             $users = [];
-
-            global $DIC;
 
             $query = /** @lang text */ "SELECT user_id FROM silr_selected_users WHERE schedule_id = %s";
 
@@ -319,17 +337,27 @@ class Schedule
         } elseif ($this->users === self::USERS_BY_ROLE) {
             $roles = [];
 
-            global $DIC;
-
             $query = /** @lang text */ "SELECT role_id FROM silr_selected_roles WHERE schedule_id = %s";
 
             $result = $DIC->database()->queryF($query, ['integer'], [$this->id]);
 
             while ($record = $DIC->database()->fetchAssoc($result)) {
-                $roles[] = ["role_id" => $record['role_id']];
+                $roles[] = ["id" => $record['role_id']];
             }
 
-            return ["roles" => $roles];
+            return ["role" => $roles];
+        } elseif ($this->users === self::USERS_ALL_EXCEPT) {
+            $excluded_users = [];
+
+            $query = /** @lang text */ "SELECT user_id FROM silr_excluded_users WHERE schedule_id = %s";
+
+            $result = $DIC->database()->queryF($query, ['integer'], [$this->id]);
+
+            while ($record = $DIC->database()->fetchAssoc($result)) {
+                $excluded_users[] = ["id" => $record['user_id']];
+            }
+
+            return ["excluded_users" => $excluded_users];
         }
 
         return [];
@@ -444,7 +472,55 @@ class Schedule
             foreach ($objects as $object) {
                 $lp_obj = ilObjectLP::getInstance(ilObject::_lookupObjectId($object['ref_id']));
                 $lp_obj->resetLPDataForCompleteObject();
-                $lp_obj->resetLPDataForAllUsers();
+            }
+        } elseif ($this->users === self::USERS_SPECIFIC) {
+            foreach ($objects as $object) {
+                $lp_obj = ilObjectLP::getInstance(ilObject::_lookupObjectId($object['ref_id']));
+                $user_ids = [];
+
+                foreach ($this->getUsersData()['specific_users'] as $user) {
+                    $user_ids[] = $user['id'];
+                }
+
+                $lp_obj->resetLPDataForUserIds($user_ids);
+            }
+        } elseif ($this->users === self::USERS_BY_ROLE) {
+            global $DIC;
+
+            foreach ($objects as $object) {
+                $obj_id = ilObject::_lookupObjectId($object['ref_id']);
+                $lp_obj = ilObjectLP::getInstance($obj_id);
+                $user_ids = ilLPMarks::_getAllUserIds($obj_id);
+                $user_ids =  array_merge($user_ids, ilChangeEvent::_getAllUserIds($obj_id));
+                $user_ids_filtered = [];
+
+                foreach ($user_ids as $user_id) {
+                    $user_roles = $DIC->rbac()->review()->assignedRoles($user_id);
+
+                    foreach ($this->getUsersData()['roles'] as $role) {
+                        if (in_array($role['id'], $user_roles)) {
+                            $user_ids_filtered[] = $user_id;
+                            break;
+                        }
+                    }
+                }
+
+                $lp_obj->resetLPDataForUserIds($user_ids_filtered);
+            }
+        } elseif ($this->users === self::USERS_ALL_EXCEPT) {
+            foreach ($objects as $object) {
+                $obj_id = ilObject::_lookupObjectId($object['ref_id']);
+                $lp_obj = ilObjectLP::getInstance($obj_id);
+                $user_ids = ilLPMarks::_getAllUserIds($obj_id);
+                $user_ids =  array_merge($user_ids, ilChangeEvent::_getAllUserIds($obj_id));
+
+                foreach ($this->getUsersData()['excluded_users'] as $excluded_user) {
+                    $user_ids = array_filter($user_ids, function ($id) use ($excluded_user) {
+                        return $id !== $excluded_user['id'];
+                    });
+                }
+
+                $lp_obj->resetLPDataForUserIds($user_ids);
             }
         }
     }

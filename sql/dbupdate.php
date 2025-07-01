@@ -37,6 +37,14 @@ if (!$db->tableExists('silr_selected_users')) {
 
     $db->addPrimaryKey('silr_selected_users', ['schedule_id', 'user_id']);
 }
+if (!$db->tableExists('silr_excluded_users')) {
+    $db->createTable('silr_excluded_users', [
+        'schedule_id' => ['type' => 'integer', 'notnull' => true],
+        'user_id' => ['type' => 'integer', 'notnull' => true],
+    ]);
+
+    $db->addPrimaryKey('silr_excluded_users', ['schedule_id', 'user_id']);
+}
 if (!$db->tableExists('silr_selected_roles')) {
     $db->createTable('silr_selected_roles', [
         'schedule_id' => ['type' => 'integer', 'notnull' => true],

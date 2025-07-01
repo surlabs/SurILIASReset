@@ -48,6 +48,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $this->request = $DIC->http()->request();
 
         $this->tpl->addCss($this->plugin->getDirectory() . '/templates/css/sur_ilias_reset_config.css');
+        $this->tpl->addJavaScript($this->plugin->getDirectory() . '/templates/js/email_preview.js');
 
         $this->setTabs();
 
@@ -302,6 +303,11 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                     $this->plugin->txt('select_specific_users')
                 )->withRequired(true)
             ], $this->plugin->txt('specific_users')),
+            Schedule::USERS_ALL_EXCEPT => $this->factory->input()->field()->group([
+                "excluded_users" => $this->customFactory->userSelect(
+                    $this->plugin->txt('select_excluded_users')
+                )->withRequired(true)
+            ], $this->plugin->txt('all_users_except')),
         ], $this->plugin->txt('users'))->withRequired(true);
 
         if ($schedule) {
@@ -352,9 +358,10 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                 ->withValue($schedule && $schedule->isEmailEnabled()),
             "days_in_advance" => $this->factory->input()->field()->numeric($this->plugin->txt('days_in_advance'))
                 ->withValue($schedule ? $schedule->getDaysInAdvance() : ""),
-            "template" => $this->factory->input()->field()->text($this->plugin->txt('template'))
-                ->withValue($schedule ? $schedule->getNotificationTemplate() : "")
+            "template" => $this->factory->input()->field()->textarea($this->plugin->txt('template'), $this->plugin->txt('template_info'))
+                ->withValue($schedule ? $schedule->getNotificationTemplate() : "")->withAdditionalOnLoadCode(function ($id) {return "initEmailPreview('$id')";}),
         ], $this->plugin->txt('notifications'));
+
 
         return $inputs;
     }

@@ -1,0 +1,63 @@
+function initEmailPreview(id) {
+    $textarea = $("#" + id);
+
+    // Crear el contenedor de preview si no existe
+    if ($("#email-preview-" + id).length === 0) {
+        var previewHtml = `
+            <div id="email-preview-${id}" class="il-email-preview" style="
+                margin-top: 10px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background: #fff;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            ">
+                <div id="email-content-${id}" class="il-email-content" style="
+                    padding: 15px;
+                    min-height: 100px;
+                    font-family: Arial, sans-serif;
+                    line-height: 1.5;
+                    color: #333;
+                    white-space: pre-wrap;
+                    word-wrap: break-word;
+                "></div>
+            </div>
+        `;
+
+        $textarea.after(previewHtml);
+    }
+
+    function replacePlaceholders(text) {
+        var placeholders = {
+            '[login]': 'surlabs',
+            '[name]': 'Sur Labs',
+            '[firstname]': 'Sur',
+            '[lastname]': 'Labs',
+            '[date]': new Date().toLocaleDateString('en-GB'),
+            '[time]': new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})
+        };
+
+        var result = text;
+        for (var placeholder in placeholders) {
+            var regex = new RegExp(placeholder.replace(/[\[\]]/g, '\\$&'), 'gi');
+            result = result.replace(regex, `<strong>${placeholders[placeholder]}</strong>`);
+        }
+
+        return result;
+    }
+
+    function updatePreview() {
+        var content = $textarea.val();
+        if (content.trim() === '') {
+            content = '<em style="color: #999;">Escribe tu mensaje aquí...</em>';
+        } else {
+            content = replacePlaceholders(content);
+        }
+        $("#email-content-" + id).html(content);
+    }
+
+    $textarea.on('input keyup paste', function() {
+        updatePreview();
+    });
+
+    updatePreview();
+}
