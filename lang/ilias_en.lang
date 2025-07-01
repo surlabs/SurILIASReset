@@ -90,3 +90,4 @@ schedule_save_failed#:#Failed to save schedule
 run#:#Run
 schedule_run_failed#:#Failed to run schedule
 schedule_run_success#:#Schedule run successfully
+run_confirmation#:#Are you sure you want to run this schedule? See more information below.

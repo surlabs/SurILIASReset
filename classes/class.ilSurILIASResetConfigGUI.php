@@ -235,10 +235,43 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     }
 
     /**
-     * @throws ilCtrlException
      * @throws Exception
      */
     private function runSchedule(): void
+    {
+        $this->tabs->activateTab('list');
+
+        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+
+        $this->tpl->setTitle($this->plugin->txt('run') . ': ' . $schedule->getName());
+
+        $this->tpl->setContent($this->buildRunConfirmation($schedule));
+
+    }
+
+    /**
+     * @throws ilCtrlException
+     */
+    private function buildRunConfirmation(Schedule $schedule): string
+    {
+        $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $schedule->getId());
+        $button = $this->factory->button()->standard(
+            $this->language->txt("confirm"),
+            $this->ctrl->getLinkTarget($this, 'confirmRunSchedule')
+        );
+
+        $confirmation = $this->factory->messageBox()->confirmation(
+            $this->plugin->txt("run_confirmation")
+        )->withButtons([$button]);
+
+        return $this->renderer->render($confirmation);
+    }
+
+    /**
+     * @throws ilCtrlException
+     * @throws Exception
+     */
+    public function confirmRunSchedule(): void
     {
         $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
 
