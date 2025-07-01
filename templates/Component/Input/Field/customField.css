@@ -1,0 +1,15 @@
+.ilSurILIASResetTreeNode {
+    display: flex;
+}
+
+.ilSurILIASResetTreeNode .c-tree__node__line {
+    padding-left: 0 !important;
+}
+
+.ilSurILIASResetTreeNode input[type="checkbox"] {
+    margin: 0 !important;
+}
+
+.objectSelectorList ul, .multipleSelectorList ul {
+    list-style: disc !important;
+}

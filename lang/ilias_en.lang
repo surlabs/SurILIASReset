@@ -1,0 +1,89 @@
+cron_title#:#Reset learning progress
+cron_description#:#This cron job resets the learning progress of the selected objects in the plugin settings.
+list#:#List
+new_schedule#:#New schedule
+name#:#Name
+count_of_programs_or_courses#:#Count of programs/courses
+users#:#Users
+frequency#:#Frequency
+actions#:#Actions
+frequency_manual#:#Manual
+frequency_automatic#:#Automatic
+frequency_invalid_data#:#Invalid frequency data
+frequency_daily_single#:#Every day
+frequency_daily_multiple#:#Every %s days
+frequency_weekly_single#:#Every week
+frequency_weekly_multiple#:#Every %s weeks
+frequency_monthly#:#On the %s of each month
+frequency_monthly_invalid#:#Invalid monthly frequency (missing day)
+frequency_monthly_invalid_day#:#Invalid day for monthly frequency
+frequency_day_of_week#:#Every %s
+frequency_day_of_week_invalid#:#Invalid day of week frequency (missing day)
+frequency_day_of_week_invalid_index#:#Invalid day index for day of week frequency
+frequency_day_of_year#:#On %s %s each year
+frequency_day_of_year_invalid#:#Invalid day of year frequency (missing day or month)
+frequency_day_of_year_invalid_month#:#Invalid month for day of year frequency
+frequency_day_of_year_invalid_day#:#Invalid day for day of year frequency
+frequency_yearly_single#:#Every year
+frequency_yearly_multiple#:#Every %s years
+frequency_hourly_single#:#Every hour
+frequency_hourly_multiple#:#Every %s hours
+frequency_minutely_single#:#Every minute
+frequency_minutely_multiple#:#Every %s minutes
+frequency_unknown_type#:#Unknown frequency type: %s
+frequency_day_monday#:#Monday
+frequency_day_tuesday#:#Tuesday
+frequency_day_wednesday#:#Wednesday
+frequency_day_thursday#:#Thursday
+frequency_day_friday#:#Friday
+frequency_day_saturday#:#Saturday
+frequency_day_sunday#:#Sunday
+frequency_month_january#:#January
+frequency_month_february#:#February
+frequency_month_march#:#March
+frequency_month_april#:#April
+frequency_month_may#:#May
+frequency_month_june#:#June
+frequency_month_july#:#July
+frequency_month_august#:#August
+frequency_month_september#:#September
+frequency_month_october#:#October
+frequency_month_november#:#November
+frequency_month_december#:#December
+frequency_ordinal_st#:#st
+frequency_ordinal_nd#:#nd
+frequency_ordinal_rd#:#rd
+frequency_ordinal_th#:#th
+all_users#:#All users
+specific_users#:#Specific users
+users_by_role#:#Users by role
+delete_confirmation#:#Are you sure you want to delete this schedule?
+email_enabled#:#Email notifications enabled
+days_in_advance#:#Days in advance
+template#:#Template
+notifications#:#Notifications
+frequency_type#:#Frequency type
+daily#:#Daily
+weekly#:#Weekly
+monthly#:#Monthly
+yearly#:#Yearly
+day_of_week#:#Day of week
+day_of_year#:#Day of year
+hourly#:#Hourly
+minutely#:#Minutely
+interval#:#Interval
+day#:#Day
+month#:#Month
+objects#:#Objects
+select_objects#:#Select objects to reset
+select_objects_info#:#Select the objects for which you want to reset the learning progress. You can select multiple objects.
+users#:#Users
+users_info#:#Users who meet these conditions will be affected
+select_role#:#Select role
+select_specific_users#:#Select specific users
+select#:#Select
+schedule_saved#:#Schedule saved successfully
+schedule_save_failed#:#Failed to save schedule
+run#:#Run
+schedule_run_failed#:#Failed to run schedule
+schedule_run_success#:#Schedule run successfully
