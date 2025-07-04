@@ -48,7 +48,6 @@ class SurILIASResetList implements DataRetrieval
 
             $record["count"] = $this->countObjects($record["id"]);
 
-
             yield $row_builder->buildDataRow((string) $record["id"], $record);
         }
     }

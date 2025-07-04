@@ -91,3 +91,22 @@ run#:#Run
 schedule_run_failed#:#Failed to run schedule
 schedule_run_success#:#Schedule run successfully
 run_confirmation#:#Are you sure you want to run this schedule? See more information below.
+schedule_info#:#Schedule information
+user#:#User
+role#:#Role
+notification_manual#:#Manual notification (optional)
+notification_manual_info#:#If you want to send a manual notification to the users, you can write a message here, leave it empty if you don't want to send a notification. You can use the following placeholders: [login] for the username, [name] for the user's full name, [firstname] for the user's firstname and [lastname] for the user's lastname.
+notification_subject#:#Reset notification
+last_run#:#Last run
+back_to_list#:#Back to list
+execution_history#:#Execution history
+count_of_affected_users#:#Count of affected users
+duration#:#Duration
+method#:#Method
+method_manual#:#Manual
+method_automatic#:#Automatic
+execution_details#:#Execution details
+back_to_history#:#Back to history
+execution_not_found#:#Execution not found
+affected_users#:#Affected users
+affected_objects#:#Affected objects

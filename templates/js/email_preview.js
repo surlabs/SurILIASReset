@@ -48,7 +48,7 @@ function initEmailPreview(id) {
     function updatePreview() {
         var content = $textarea.val();
         if (content.trim() === '') {
-            content = '<em style="color: #999;">Escribe tu mensaje aquí...</em>';
+            content = '<em style="color: #999;"></em>';
         } else {
             content = replacePlaceholders(content);
         }
@@ -60,4 +60,36 @@ function initEmailPreview(id) {
     });
 
     updatePreview();
+}
+
+function initRunConfirmation(id) {
+    $("#" + id).on('click', async function() {
+        const url = $(this).attr('url');
+        const notify = $(".notification_manual").val() || '';
+
+        try {
+            if (notify.trim().length === 0) {
+                window.location.href = url;
+            } else {
+                const formData = new FormData();
+                formData.append('notification_manual', notify.trim());
+
+                const response = await fetch(url.replace("confirmRunSchedule", "sendNotification"), {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    window.location.href = url;
+                } else {
+                    console.error('Request failed:', response.statusText);
+                }
+            }
+        } catch (error) {
+            console.error('Error in run confirmation:', error);
+        }
+    });
 }

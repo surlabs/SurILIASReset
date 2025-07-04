@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use classes\objects\Schedule;
+use classes\objects\ScheduleExecutionResult;
+use classes\ui\SurILIASResetHistory;
 use classes\ui\SurILIASResetList;
 use Customizing\global\plugins\Services\UIComponent\UserInterfaceHook\SurILIASReset\classes\ui\Component\CustomFactory;
 use ILIAS\HTTP\Wrapper\WrapperFactory;
@@ -10,6 +12,7 @@ use ILIAS\UI\Component\Input\Field\Group;
 use ILIAS\UI\Factory;
 use ILIAS\UI\Renderer;
 use ILIAS\UI\URLBuilder;
+use JetBrains\PhpStorm\NoReturn;
 
 /**
  * Class ilSurILIASResetConfigGUI
@@ -35,6 +38,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     public function performCommand(string $cmd): void
     {
         global $DIC;
+
         $this->tpl = $DIC->ui()->mainTemplate();
         $this->tabs = $DIC->tabs();
         $this->ctrl = $DIC->ctrl();
@@ -62,6 +66,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     {
         $this->tabs->addTab('list', $this->plugin->txt('list'), $this->ctrl->getLinkTarget($this, 'configure'));
         $this->tabs->addTab('new_schedule', $this->plugin->txt('new_schedule'), $this->ctrl->getLinkTarget($this, 'newSchedule'));
+        $this->tabs->addTab('history', $this->plugin->txt('execution_history'), $this->ctrl->getLinkTarget($this, 'history'));
     }
 
     /**
@@ -77,6 +82,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $this->tabs->addSubTab('delete', $this->language->txt('delete'), $this->ctrl->getLinkTarget($this, 'deleteSchedule'));
 
         $this->tabs->activateSubTab($active);
+        $this->tabs->setBackTarget($this->plugin->txt('back_to_list'), $this->ctrl->getLinkTarget($this, 'configure'));
     }
 
     /**
@@ -93,6 +99,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             "count" => $this->factory->table()->column()->text($this->plugin->txt("count_of_programs_or_courses")),
             "users" => $this->factory->table()->column()->text($this->plugin->txt("users")),
             "frequency" => $this->factory->table()->column()->text($this->plugin->txt("frequency")),
+            "last_run" => $this->factory->table()->column()->text($this->plugin->txt("last_run")),
         ];
 
         $df = new \ILIAS\Data\Factory();
@@ -257,14 +264,25 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $schedule->getId());
         $button = $this->factory->button()->standard(
             $this->language->txt("confirm"),
-            $this->ctrl->getLinkTarget($this, 'confirmRunSchedule')
-        );
+            "#"
+        )->withAdditionalOnLoadCode(function ($id) {
+            return "initRunConfirmation('$id'); $('#$id').attr('url', '" . $this->ctrl->getLinkTarget($this, 'confirmRunSchedule') . "');";
+        });
+
+        $this->tpl->addJavaScript($this->plugin->getDirectory() . '/templates/js/email_preview.js');
+
+        $notification = $this->factory->input()->field()->textarea(
+            $this->plugin->txt('notification_manual'),
+            $this->plugin->txt('notification_manual_info')
+        )->withAdditionalOnLoadCode(function ($id) {
+            return "$('#$id').addClass('notification_manual'); initEmailPreview('$id');";
+        });
 
         $confirmation = $this->factory->messageBox()->confirmation(
-            $this->plugin->txt("run_confirmation")
+            $this->plugin->txt("run_confirmation") . $this->renderer->render($notification)
         )->withButtons([$button]);
 
-        return $this->renderer->render($confirmation);
+        return $this->renderer->render($confirmation) . "\n" . $this->displayScheduleInfo($schedule);
     }
 
     /**
@@ -276,13 +294,30 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
 
         try {
-            $schedule->run();
+            $schedule->run(Schedule::METHOD_MANUAL);
             $this->tpl->setOnScreenMessage("success", $this->plugin->txt("schedule_run_success"), true);
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("schedule_run_failed") . ': ' . $e->getMessage(), true);
         }
 
         $this->ctrl->redirect($this, 'configure');
+    }
+
+    /**
+     * @throws Exception
+     */
+    #[NoReturn] public function sendNotification(): void
+    {
+        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+
+        $schedule->sendNotification(
+            $this->wrapper->post()->retrieve('notification_manual', $this->refinery->to()->string())
+        );
+
+        http_response_code(200);
+        header('Content-type: application/json');
+        echo json_encode(["ok" => true]);
+        exit();
     }
 
     /**
@@ -507,5 +542,169 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         } catch (Exception) {
             $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("schedule_save_failed"), true);
         }
+    }
+
+    private function displayScheduleInfo(Schedule $schedule): string
+    {
+        $content = [];
+
+        $content[] = $this->factory->panel()->sub(
+            $this->plugin->txt('name'),
+            $this->factory->legacy($schedule->getName())
+        );
+
+        $objects = [];
+
+        foreach ($schedule->getObjectsDataToDisplay() as $object) {
+            $objects[] = $this->factory->link()->standard(
+                $object['title'],
+                $object['url'],
+            );
+        }
+
+        $content[] = $this->factory->panel()->sub(
+            $this->plugin->txt('objects'),
+            $this->factory->listing()->ordered($objects)
+        );
+
+        $content[] = $this->factory->panel()->sub(
+            $this->plugin->txt('users'),
+            $this->factory->listing()->ordered($schedule->getUsersDataToDisplay())
+        );
+
+        return $this->renderer->render($this->factory->panel()->standard(
+            $this->plugin->txt('schedule_info'),
+            $content
+        ));
+    }
+
+    /**
+     * @throws ilCtrlException
+     */
+    public function history(): void
+    {
+        $this->tabs->activateTab('history');
+
+        $this->tpl->setTitle($this->plugin->txt('execution_history'));
+
+        $columns = array(
+            "name" => $this->factory->table()->column()->text($this->plugin->txt("name")),
+            "date" => $this->factory->table()->column()->text($this->language->txt("date")),
+            "method" => $this->factory->table()->column()->text($this->plugin->txt("method")),
+            "count_of_affected_users" => $this->factory->table()->column()->text($this->plugin->txt("count_of_affected_users")),
+            "duration" => $this->factory->table()->column()->text($this->plugin->txt("duration")),
+        );
+
+        $df = new \ILIAS\Data\Factory();
+        $here_uri = $df->uri($this->request->getUri()->__toString());
+        $url_builder = new URLBuilder($here_uri);
+
+        $query_params_namespace = ['history_table'];
+        list($url_builder, $id_token, $action_token) = $url_builder->acquireParameters(
+            $query_params_namespace,
+            "relay_param",
+            "action"
+        );
+
+        $query = $this->wrapper->query();
+
+        if ($query->has($action_token->getName())) {
+            $action = $query->retrieve($action_token->getName(), $this->refinery->to()->string());
+            $ids = $query->retrieve($id_token->getName(), $this->refinery->custom()->transformation(fn($v) => $v));
+            $id = $ids[0] ?? null;
+
+            switch ($action) {
+                case "view":
+                    $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'execution_id', $id);
+                    $this->ctrl->redirectByClass('ilSurILIASResetConfigGUI', 'viewExecution');
+                    break;
+            }
+        }
+
+        $data_provider = new SurILIASResetHistory();
+
+        $actions = [
+            $this->factory->table()->action()->single(
+                $this->language->txt('view'),
+                $url_builder->withParameter($action_token, "view"),
+                $id_token
+            ),
+        ];
+
+        $table_component = $this->factory->table()->data('', $columns, $data_provider)
+            ->withRequest($this->request)
+            ->withActions($actions);
+
+        $this->tpl->setContent($this->renderer->render($table_component));
+    }
+
+    /**
+     * @throws ilCtrlException
+     * @throws Exception
+     */
+    private function viewExecution(): void
+    {
+        $this->tpl->setTitle($this->plugin->txt('execution_details'));
+
+        $this->tabs->activateTab('history');
+        $this->tabs->setBackTarget($this->plugin->txt('back_to_history'), $this->ctrl->getLinkTarget($this, 'history'));
+
+        $execution_id = (int) $this->wrapper->query()->retrieve('execution_id', $this->refinery->to()->string());
+        $execution = ScheduleExecutionResult::getById($execution_id);
+
+        if (empty($execution)) {
+            $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("execution_not_found"), true);
+            $this->ctrl->redirect($this, 'history');
+            return;
+        }
+
+        $affected_objects = [];
+
+        foreach ($execution['affected_objects'] as $ref_id) {
+            $obj_id = ilObject::_lookupObjectId($ref_id);
+            $type = ilObject::_lookupType($obj_id);
+            $title = ilObject::_lookupTitle($obj_id);
+            $url = "goto.php?target={$type}_$ref_id";
+
+            $affected_objects[] = $this->factory->link()->standard(
+                $title,
+                $url
+            );
+        }
+
+        $affected_users = [];
+
+        foreach ($execution['affected_users'] as $user_id) {
+            $user = new ilObjUser($user_id);
+            $affected_users[] = $user->getFullname() . ' (' . $user->getLogin() . ')';
+        }
+
+        $panel = $this->factory->panel()->standard(
+            $this->plugin->txt('name') . ': ' . $execution['schedule_name'],
+            [
+                $this->factory->panel()->sub(
+                    $this->language->txt('date'),
+                    $this->factory->legacy((string) $execution['date'])
+                ),
+                $this->factory->panel()->sub(
+                    $this->plugin->txt('method'),
+                    $this->factory->legacy($this->plugin->txt("method_" . Schedule::METHODS[$execution['method']] ?? 'unknown'))
+                ),
+                $this->factory->panel()->sub(
+                    $this->plugin->txt('duration'),
+                    $this->factory->legacy($execution['duration'] . ' ms')
+                ),
+                $this->factory->panel()->sub(
+                    $this->plugin->txt('affected_objects'),
+                    $this->factory->listing()->ordered($affected_objects)
+                ),
+                $this->factory->panel()->sub(
+                    $this->plugin->txt('affected_users'),
+                    $this->factory->listing()->ordered($affected_users)
+                ),
+            ]
+        );
+
+        $this->tpl->setContent($this->renderer->render($panel));
     }
 }

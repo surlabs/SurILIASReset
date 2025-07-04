@@ -53,4 +53,32 @@ if (!$db->tableExists('silr_selected_roles')) {
 
     $db->addPrimaryKey('silr_selected_roles', ['schedule_id', 'role_id']);
 }
+if (!$db->tableExists('silr_history')) {
+    $db->createTable('silr_history', [
+        'id' => ['type' => 'integer', 'notnull' => true],
+        'schedule_id' => ['type' => 'integer', 'notnull' => true],
+        'date' => ['type' => 'timestamp', 'notnull' => true],
+        'method' => ['type' => 'integer', 'notnull' => true],
+        'duration' => ['type' => 'integer', 'notnull' => true]
+    ]);
+
+    $db->addPrimaryKey('silr_history', ['id']);
+    $db->createSequence('silr_history');
+}
+if (!$db->tableExists('silr_users_affected')) {
+    $db->createTable('silr_users_affected', [
+        'execution_id' => ['type' => 'integer', 'notnull' => true],
+        'user_id' => ['type' => 'integer', 'notnull' => true],
+    ]);
+
+    $db->addPrimaryKey('silr_users_affected', ['execution_id', 'user_id']);
+}
+if (!$db->tableExists('silr_objects_affected')) {
+    $db->createTable('silr_objects_affected', [
+        'execution_id' => ['type' => 'integer', 'notnull' => true],
+        'object_id' => ['type' => 'integer', 'notnull' => true],
+    ]);
+
+    $db->addPrimaryKey('silr_objects_affected', ['execution_id', 'object_id']);
+}
 ?>

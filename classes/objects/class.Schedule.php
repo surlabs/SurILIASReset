@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace classes\objects;
 
+use DateInterval;
+use DateMalformedIntervalStringException;
 use DateMalformedStringException;
 use DateTime;
 use Exception;
 use ilChangeEvent;
 use ilContainerReference;
+use ilLanguage;
 use ilLPMarks;
+use ilMail;
 use ilObject;
 use ilObjectLP;
 use ilObjStudyProgramme;
+use ilObjUser;
 use ilStudyProgrammeTreeException;
+use ilSurILIASResetPlugin;
 
 class Schedule
 {
@@ -21,6 +27,8 @@ class Schedule
     public const USERS_SPECIFIC = 2;
     public const USERS_BY_ROLE = 3;
     public const USERS_ALL_EXCEPT = 4;
+    const METHOD_MANUAL = 1;
+    const METHOD_AUTOMATIC = 2;
 
     private int $id;
     private string $name;
@@ -38,6 +46,11 @@ class Schedule
         self::USERS_SPECIFIC => "specific_users",
         self::USERS_BY_ROLE => "users_by_role",
         self::USERS_ALL_EXCEPT => "all_users_except",
+    ];
+
+    public const METHODS = [
+        self::METHOD_MANUAL => "manual",
+        self::METHOD_AUTOMATIC => "automatic",
     ];
 
     /**
@@ -187,11 +200,6 @@ class Schedule
         return $this->created_at ?? date('Y-m-d H:i:s');
     }
 
-    public function setCreatedAt(string $created_at): void
-    {
-        $this->created_at = $created_at;
-    }
-
     public function isEmailEnabled(): bool
     {
         return $this->email_notifications;
@@ -318,6 +326,29 @@ class Schedule
         return $objects;
     }
 
+    public function getObjectsDataToDisplay(): array
+    {
+        $data = $this->getObjectsData();
+
+        $objects = [];
+
+        foreach ($data as $object) {
+            $ref_id = $object['id'];
+            $obj_id = ilObject::_lookupObjectId($ref_id);
+            $type = ilObject::_lookupType($obj_id);
+            $title = ilObject::_lookupTitle($obj_id);
+
+            $url = "goto.php?target={$type}_$ref_id";
+
+            $objects[] = [
+                'title' => $title,
+                'url'   => $url
+            ];
+        }
+
+        return $objects;
+    }
+
     public function getUsersData(): array
     {
         global $DIC;
@@ -362,6 +393,94 @@ class Schedule
 
         return [];
     }
+
+    public function getUsersDataToDisplay(): array
+    {
+        $plugin = ilSurILIASResetPlugin::getInstance();
+        $users = $this->getUsersData();
+
+        $data = [];
+
+        if ($this->users === self::USERS_ALL) {
+            $data[] = $plugin->txt('all_users');
+            return $data;
+        } elseif ($this->users === self::USERS_ALL_EXCEPT) {
+            $data[] = $plugin->txt('all_users_except');
+        }
+
+        foreach ($users as $user_type => $user_list) {
+            if ($user_type == 'specific_users' || $user_type == 'excluded_users') {
+                foreach ($user_list as $user) {
+                    $user_id = $user['id'];
+                    $name = ilObjUser::_lookupName($user_id);
+                    $data[] = $plugin->txt('user') . ": " . $name['firstname'] . " " . $name['lastname'] . " (" . $name['login'] . ")";
+                }
+            } elseif ($user_type == 'role') {
+                foreach ($user_list as $role) {
+                    $role_id = $role['id'];
+                    $role_name = ilObject::_lookupTitle($role_id);
+                    $data[] = $plugin->txt('role') . ": " . $role_name;
+                }
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @throws ilStudyProgrammeTreeException
+     */
+    private function getAffectedUsers(): array
+    {
+        $affected = [];
+        $objects = $this->getObjectsToReset();
+
+        foreach ($objects as $object) {
+            $obj_id = ilObject::_lookupObjectId($object['ref_id']);
+
+            if ($this->users === self::USERS_ALL) {
+                $affected = array_merge($affected, ilLPMarks::_getAllUserIds($obj_id));
+                $affected = array_merge($affected, ilChangeEvent::_getAllUserIds($obj_id));
+            } elseif ($this->users === self::USERS_SPECIFIC) {
+                foreach ($this->getUsersData()['specific_users'] as $user) {
+                    $affected[] = $user['id'];
+                }
+            } elseif ($this->users === self::USERS_BY_ROLE) {
+                global $DIC;
+
+                $user_ids = ilLPMarks::_getAllUserIds($obj_id);
+                $user_ids = array_merge($user_ids, ilChangeEvent::_getAllUserIds($obj_id));
+                $user_ids_filtered = [];
+
+                foreach ($user_ids as $user_id) {
+                    $user_roles = $DIC->rbac()->review()->assignedRoles($user_id);
+
+                    foreach ($this->getUsersData()['role'] as $role) {
+                        if (in_array($role['id'], $user_roles)) {
+                            $user_ids_filtered[] = $user_id;
+                            break;
+                        }
+                    }
+                }
+
+                $affected = array_merge($affected, $user_ids_filtered);
+            } elseif ($this->users === self::USERS_ALL_EXCEPT) {
+                $user_ids = ilLPMarks::_getAllUserIds($obj_id);
+                $user_ids = array_merge($user_ids, ilChangeEvent::_getAllUserIds($obj_id));
+
+                foreach ($this->getUsersData()['excluded_users'] as $excluded_user) {
+                    $user_ids = array_filter($user_ids, function ($id) use ($excluded_user) {
+                        return $id !== $excluded_user['id'];
+                    });
+                }
+
+                $affected = array_merge($affected, $user_ids);
+            }
+        }
+
+        return array_unique($affected);
+    }
+
 
     /**
      * @throws DateMalformedStringException
@@ -464,8 +583,10 @@ class Schedule
     /**
      * @throws ilStudyProgrammeTreeException
      */
-    public function run(): void
+    public function run(int $method = self::METHOD_AUTOMATIC): ScheduleExecutionResult
     {
+        $result = new ScheduleExecutionResult($this->getId(), $method);
+
         $objects = $this->getObjectsToReset();
 
         if ($this->users === self::USERS_ALL) {
@@ -523,6 +644,13 @@ class Schedule
                 $lp_obj->resetLPDataForUserIds($user_ids);
             }
         }
+
+        $this->setLastRun(date('Y-m-d H:i:s'));
+        $this->save();
+
+        $result->save($this->getAffectedUsers(), $this->getObjectsData());
+
+        return $result;
     }
 
     /**
@@ -599,5 +727,120 @@ class Schedule
             }
         }
         return false;
+    }
+
+    /**
+     * @throws DateMalformedStringException
+     * @throws DateMalformedIntervalStringException|ilStudyProgrammeTreeException
+     */
+    public function sendNotification(?string $text = null): void
+    {
+        $template = $text ?? $this->getNotificationTemplate();
+
+        if (empty($template)) {
+            return;
+        }
+
+        $template = str_replace(
+            ['[date]', '[time]'],
+            $this->calculateDateAndTime(),
+            $template
+        );
+
+        $mail = new ilMail(ANONYMOUS_USER_ID);
+
+        $user_ids = $this->getAffectedUsers();
+
+        foreach ($user_ids as $user_id) {
+            $user = new ilObjUser($user_id);
+
+            $lng = new ilLanguage($user->getLanguage());
+            $lng->loadLanguageModule("ui_uihk_silr");
+
+            $template_for_user = str_replace(
+                ['[name]', '[firstname]', '[last_name]', '[login]'],
+                [$user->getFullname(), $user->getFirstname(), $user->getLastname(), $user->getLogin()],
+                $template
+            );
+
+            $mail->enqueue(
+                $user->getEmail(),
+                "",
+                "",
+                $lng->txt('ui_uihk_silr_notification_subject'),
+                $template_for_user,
+                []
+            );
+        }
+    }
+
+    /**
+     * @throws DateMalformedStringException
+     * @throws DateMalformedIntervalStringException
+     */
+    private function calculateDateAndTime(): array
+    {
+        $today = new DateTime();
+        $date = $today->format('Y-m-d');
+        $time = $today->format('H:i:s');
+        $last_run = new DateTime($this->getLastRun() ?? $this->getCreatedAt());
+
+        switch ($this->frequency) {
+            case 'minutely':
+                $date = $today->format('Y-m-d');
+                $time = $today->add(new DateInterval('PT' . (int) $this->getFrequencyData()['interval'] . 'M'))->format('H:i:s');
+                break;
+            case 'hourly':
+                $date = $today->format('Y-m-d');
+                $time = $today->add(new DateInterval('PT' . (int) $this->getFrequencyData()['interval'] . 'H'))->format('H:i:s');
+                break;
+            case 'daily':
+                $date = $today->format('Y-m-d');
+                $time = $today->add(new DateInterval('P' . (int) $this->getFrequencyData()['interval'] . 'D'))->format('H:i:s');
+                break;
+            case 'weekly':
+                $date = $today->format('Y-m-d');
+                $time = $today->add(new DateInterval('P' . (int) $this->getFrequencyData()['interval'] . 'W'))->format('H:i:s');
+                break;
+            case 'monthly':
+                $date = $today->format('Y-m-d');
+                $time = $today->add(new DateInterval('P' . (int) $this->getFrequencyData()['interval'] . 'M'))->format('H:i:s');
+                break;
+            case 'yearly':
+                $date = $today->format('Y-m-d');
+                $time = $today->add(new DateInterval('P' . (int) $this->getFrequencyData()['interval'] . 'Y'))->format('H:i:s');
+                break;
+            case 'day_of_week':
+                $day_of_week = (int) $this->getFrequencyData()['day'];
+                $last_run_day = (int) $last_run->format('N');
+
+                $days_to_add = ($day_of_week - $last_run_day + 7) % 7;
+                if ($days_to_add === 0) {
+                    $days_to_add = 7;
+                }
+                $date = $last_run->add(new DateInterval('P' . $days_to_add . 'D'))->format('Y-m-d');
+                $time = $last_run->format('H:i:s');
+                break;
+            case 'day_of_year':
+                $month = (int) $this->getFrequencyData()['month'];
+                $day = (int) $this->getFrequencyData()['day'];
+
+                $last_run_month = (int) $last_run->format('n');
+                $last_run_day = (int) $last_run->format('j');
+
+                if ($last_run_month === $month && $last_run_day === $day) {
+                    return [$date, $time];
+                }
+
+                $next_date = new DateTime("{$last_run->format('Y')}-$month-$day");
+                if ($next_date < $last_run) {
+                    $next_date->modify('+1 year');
+                }
+                $date = $next_date->format('Y-m-d');
+                $time = $last_run->format('H:i:s');
+                break;
+        }
+
+        return [$date, $time];
     }
 }
