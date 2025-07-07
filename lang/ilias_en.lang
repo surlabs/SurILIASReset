@@ -64,6 +64,8 @@ email_enabled#:#Email notifications enabled
 days_in_advance#:#Days in advance
 template#:#Template
 template_info#:#Write a email message that will be sent to the users in advance of the reset. You can use the following placeholders: [login] for the username, [name] for the user's full name, [firstname] for the user's firstname, [lastname] for the user's lastname, [date] for the date of the reset, and [time] for the time of the reset.
+subject#:#Subject
+subject_info#:#Write a subject for the email notification.
 notifications#:#Notifications
 frequency_type#:#Frequency type
 daily#:#Daily
@@ -96,7 +98,6 @@ user#:#User
 role#:#Role
 notification_manual#:#Manual notification (optional)
 notification_manual_info#:#If you want to send a manual notification to the users, you can write a message here, leave it empty if you don't want to send a notification. You can use the following placeholders: [login] for the username, [name] for the user's full name, [firstname] for the user's firstname and [lastname] for the user's lastname.
-notification_subject#:#Reset notification
 last_run#:#Last run
 back_to_list#:#Back to list
 execution_history#:#Execution history
@@ -110,3 +111,5 @@ back_to_history#:#Back to history
 execution_not_found#:#Execution not found
 affected_users#:#Affected users
 affected_objects#:#Affected objects
+notification_subject#:#Notification subject
+notification_subject_manual#:#Notification subject (Optional)

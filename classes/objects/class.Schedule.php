@@ -38,8 +38,10 @@ class Schedule
     private string $created_at;
     private bool $email_notifications = false;
     private int $days_in_advance = 0;
+    private string $notification_subject = '';
     private string $notification_template = '';
     private ?string $last_run;
+    private ?string $last_notification;
 
     public const TEXTS = [
         self::USERS_ALL => "all_users",
@@ -126,8 +128,11 @@ class Schedule
             'created_at' => ['timestamp', $this->created_at ?? date('Y-m-d H:i:s')],
             'email_notifications' => ['integer', (int) $this->email_notifications],
             'days_in_advance' => ['integer', $this->days_in_advance],
+            'notification_subject' => ['text', $this->notification_subject],
             'notification_template' => ['text', $this->notification_template],
             'last_run' => ['timestamp', $this->last_run ?? null],
+            'last_notification' => ['timestamp', $this->last_notification ?? null],
+
         ]);
     }
 
@@ -142,8 +147,10 @@ class Schedule
             'frequency_data' => ['text', $this->frequency_data],
             'email_notifications' => ['integer', (int) $this->email_notifications],
             'days_in_advance' => ['integer', $this->days_in_advance],
+            'notification_subject' => ['text', $this->notification_subject],
             'notification_template' => ['text', $this->notification_template],
             'last_run' => ['timestamp', $this->last_run ?? null],
+            'last_notification' => ['timestamp', $this->last_notification ?? null],
         ], [
             'id' => ['integer', $this->id]
         ]);
@@ -220,6 +227,16 @@ class Schedule
         $this->days_in_advance = $days;
     }
 
+    public function getNotificationSubject(): string
+    {
+        return $this->notification_subject;
+    }
+
+    public function setNotificationSubject(string $subject): void
+    {
+        $this->notification_subject = $subject;
+    }
+
     public function getNotificationTemplate(): string
     {
         return $this->notification_template;
@@ -238,6 +255,16 @@ class Schedule
     public function setLastRun(?string $last_run): void
     {
         $this->last_run = $last_run;
+    }
+
+    public function getLastNotification(): ?string
+    {
+        return $this->last_notification;
+    }
+
+    public function setLastNotification(?string $last_notification): void
+    {
+        $this->last_notification = $last_notification;
     }
 
     /**
@@ -491,7 +518,7 @@ class Schedule
             return false;
         }
 
-        $last_run = new DateTime($this->last_run ?? '1970-01-01 00:00:00');
+        $last_run = new DateTime($this->last_run ?? $this->created_at);
         $today = new DateTime();
         $frequency_data = json_decode($this->frequency_data, true);
 
@@ -581,6 +608,90 @@ class Schedule
     }
 
     /**
+     * @throws DateMalformedStringException
+     * @throws DateMalformedIntervalStringException
+     * @throws \DateInvalidOperationException
+     */
+    public function shouldNotify(): bool
+    {
+        if (!$this->email_notifications) {
+            return false;
+        }
+
+        $last_run = new DateTime($this->last_run ?? $this->created_at);
+        $last_notification = new DateTime($this->last_notification ?? '1970-01-01 00:00:00');
+        $today = new DateTime();
+
+        if ($today->format('Y-m-d') === $last_notification->format('Y-m-d')) {
+            return false;
+        }
+
+        $frequency_data = json_decode($this->frequency_data, true);
+
+        if (!is_array($frequency_data) || empty($frequency_data)) {
+            return false;
+        }
+
+        $next_run = clone $today;
+
+        switch ($this->frequency) {
+            case 'minutely':
+                $interval = (int) $frequency_data['interval'];
+                $next_run = $last_run->add(new DateInterval('PT' . $interval . 'M'));
+                break;
+            case 'hourly':
+                $interval = (int) $frequency_data['interval'];
+                $next_run = $last_run->add(new DateInterval('PT' . $interval . 'H'));
+                break;
+            case 'daily':
+                $interval = (int) $frequency_data['interval'];
+                $next_run = $last_run->add(new DateInterval('P' . $interval . 'D'));
+                break;
+            case 'weekly':
+                $interval = (int) $frequency_data['interval'];
+                $next_run = $last_run->add(new DateInterval('P' . $interval . 'W'));
+                break;
+            case 'monthly':
+                $interval = (int) $frequency_data['interval'];
+                $next_run = $last_run->add(new DateInterval('P' . $interval . 'M'));
+                break;
+            case 'yearly':
+                $interval = (int) $frequency_data['interval'];
+                $next_run = $last_run->add(new DateInterval('P' . $interval . 'Y'));
+                break;
+            case 'day_of_week':
+                $day_of_week = (int) $frequency_data['day'];
+                $next_run = clone $last_run;
+
+                $days_to_add = ($day_of_week - (int) $last_run->format('N') + 7) % 7;
+                if ($days_to_add === 0) {
+                    $days_to_add = 7;
+                }
+                $next_run->add(new DateInterval('P' . $days_to_add . 'D'));
+                break;
+            case 'day_of_year':
+                $month = (int) $frequency_data['month'];
+                $day = (int) $frequency_data['day'];
+
+                $next_run = new DateTime("{$last_run->format('Y')}-$month-$day");
+                if ($next_run < $last_run) {
+                    $next_run->modify('+1 year');
+                }
+                break;
+        }
+
+        $days_in_advance = $this->days_in_advance;
+        $next_run_with_advance = clone $next_run;
+        $next_run_with_advance->sub(new DateInterval('P' . $days_in_advance . 'D'));
+
+        if ($next_run_with_advance->format('Y-m-d') <= $today->format('Y-m-d')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * @throws ilStudyProgrammeTreeException
      */
     public function run(int $method = self::METHOD_AUTOMATIC): ScheduleExecutionResult
@@ -651,6 +762,20 @@ class Schedule
         $result->save($this->getAffectedUsers(), $this->getObjectsData());
 
         return $result;
+    }
+
+    /**
+     * @throws DateMalformedStringException
+     * @throws ilStudyProgrammeTreeException
+     * @throws DateMalformedIntervalStringException
+     */
+    public function notify(): void
+    {
+        $this->sendNotification();
+
+        $this->setLastNotification(date('Y-m-d H:i:s'));
+
+        $this->save();
     }
 
     /**
@@ -733,11 +858,12 @@ class Schedule
      * @throws DateMalformedStringException
      * @throws DateMalformedIntervalStringException|ilStudyProgrammeTreeException
      */
-    public function sendNotification(?string $text = null): void
+    public function sendNotification(?string $subject = null, ?string $text = null): void
     {
+        $subject = $subject ?? $this->getNotificationSubject();
         $template = $text ?? $this->getNotificationTemplate();
 
-        if (empty($template)) {
+        if (empty($subject) || empty($template)) {
             return;
         }
 
@@ -767,7 +893,7 @@ class Schedule
                 $user->getEmail(),
                 "",
                 "",
-                $lng->txt('ui_uihk_silr_notification_subject'),
+                $subject,
                 $template_for_user,
                 []
             );

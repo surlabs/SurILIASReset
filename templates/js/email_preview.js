@@ -66,13 +66,15 @@ function initRunConfirmation(id) {
     $("#" + id).on('click', async function() {
         const url = $(this).attr('url');
         const notify = $(".notification_manual").val() || '';
+        const subject = $(".notification_subject").val() || '';
 
         try {
-            if (notify.trim().length === 0) {
+            if (notify.trim().length === 0 && subject.trim().length === 0) {
                 window.location.href = url;
             } else {
                 const formData = new FormData();
                 formData.append('notification_manual', notify.trim());
+                formData.append('notification_subject', subject.trim());
 
                 const response = await fetch(url.replace("confirmRunSchedule", "sendNotification"), {
                     method: 'POST',

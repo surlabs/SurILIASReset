@@ -271,6 +271,12 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $this->tpl->addJavaScript($this->plugin->getDirectory() . '/templates/js/email_preview.js');
 
+        $subject = $this->factory->input()->field()->text(
+            $this->plugin->txt('notification_subject_manual')
+        )->withAdditionalOnLoadCode(function ($id) {
+            return "$('#$id').addClass('notification_subject');";
+        });
+
         $notification = $this->factory->input()->field()->textarea(
             $this->plugin->txt('notification_manual'),
             $this->plugin->txt('notification_manual_info')
@@ -279,7 +285,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         });
 
         $confirmation = $this->factory->messageBox()->confirmation(
-            $this->plugin->txt("run_confirmation") . $this->renderer->render($notification)
+            $this->plugin->txt("run_confirmation") . $this->renderer->render([$subject, $notification])
         )->withButtons([$button]);
 
         return $this->renderer->render($confirmation) . "\n" . $this->displayScheduleInfo($schedule);
@@ -311,6 +317,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
 
         $schedule->sendNotification(
+            $this->wrapper->post()->retrieve('notification_subject', $this->refinery->to()->string()),
             $this->wrapper->post()->retrieve('notification_manual', $this->refinery->to()->string())
         );
 
@@ -426,10 +433,11 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                 ->withValue($schedule && $schedule->isEmailEnabled()),
             "days_in_advance" => $this->factory->input()->field()->numeric($this->plugin->txt('days_in_advance'))
                 ->withValue($schedule ? $schedule->getDaysInAdvance() : ""),
+            "subject" => $this->factory->input()->field()->text($this->plugin->txt('subject'), $this->plugin->txt('subject_info'))
+                ->withValue($schedule ? $schedule->getNotificationSubject() : ""),
             "template" => $this->factory->input()->field()->textarea($this->plugin->txt('template'), $this->plugin->txt('template_info'))
                 ->withValue($schedule ? $schedule->getNotificationTemplate() : "")->withAdditionalOnLoadCode(function ($id) {return "initEmailPreview('$id')";}),
         ], $this->plugin->txt('notifications'));
-
 
         return $inputs;
     }
@@ -451,13 +459,13 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                 break;
             case 'day_of_week':
                 $inputs['day'] = $this->factory->input()->field()->select($this->plugin->txt('day'), [
-                    0 => $this->plugin->txt('frequency_day_monday'),
-                    1 => $this->plugin->txt('frequency_day_tuesday'),
-                    2 => $this->plugin->txt('frequency_day_wednesday'),
-                    3 => $this->plugin->txt('frequency_day_thursday'),
-                    4 => $this->plugin->txt('frequency_day_friday'),
-                    5 => $this->plugin->txt('frequency_day_saturday'),
-                    6 => $this->plugin->txt('frequency_day_sunday'),
+                    0 => $this->plugin->txt('frequency_day_sunday'),
+                    1 => $this->plugin->txt('frequency_day_monday'),
+                    2 => $this->plugin->txt('frequency_day_tuesday'),
+                    3 => $this->plugin->txt('frequency_day_wednesday'),
+                    4 => $this->plugin->txt('frequency_day_thursday'),
+                    5 => $this->plugin->txt('frequency_day_friday'),
+                    6 => $this->plugin->txt('frequency_day_saturday'),
                 ])
                     ->withValue(0)
                     ->withRequired(true);
@@ -534,6 +542,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
             $schedule->setEmailEnabled($data['notifications']['email_enabled'] ?? false);
             $schedule->setDaysInAdvance((int) ($data['notifications']['days_in_advance'] ?? 0));
+            $schedule->setNotificationSubject($data['notifications']['subject'] ?? '');
             $schedule->setNotificationTemplate($data['notifications']['template'] ?? '');
 
             $schedule->save();
