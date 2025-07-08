@@ -246,6 +246,14 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
      */
     private function runSchedule(): void
     {
+        global $DIC;
+
+        if (!$DIC->rbac()->review()->isAssigned($DIC->user()->getId(), SYSTEM_ROLE_ID)) {
+            $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("access_denied"), true);
+            $this->ctrl->redirect($this, 'configure');
+            return;
+        }
+
         $this->tabs->activateTab('list');
 
         $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
@@ -297,6 +305,14 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
      */
     public function confirmRunSchedule(): void
     {
+        global $DIC;
+
+        if (!$DIC->rbac()->review()->isAssigned($DIC->user()->getId(), SYSTEM_ROLE_ID)) {
+            $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("access_denied"), true);
+            $this->ctrl->redirect($this, 'configure');
+            return;
+        }
+
         $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
 
         try {
