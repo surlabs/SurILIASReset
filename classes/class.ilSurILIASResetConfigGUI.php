@@ -522,10 +522,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
             $schedule->setName($data['name']);
 
-            $schedule->saveObjectsData($data['objects']['objects']);
-
             $schedule->setUsers((int) $data['users']['users'][0] ?? Schedule::USERS_ALL);
-            $schedule->saveUsersData($data['users']['users'][1] ?? []);
 
             $frequency = $data['frequency']['frequency'][0] ?? 'manual';
             $frequency_data = [];
@@ -562,6 +559,9 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             $schedule->setNotificationTemplate($data['notifications']['template'] ?? '');
 
             $schedule->save();
+
+            $schedule->saveObjectsData($data['objects']['objects']);
+            $schedule->saveUsersData($data['users']['users'][1] ?? []);
 
             $this->tpl->setOnScreenMessage("success", $this->plugin->txt("schedule_saved"), true);
         } catch (Exception) {
