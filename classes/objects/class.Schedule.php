@@ -12,6 +12,9 @@ use Exception;
 use ilChangeEvent;
 use ilContainerReference;
 use ilLanguage;
+use ilLogger;
+use ilLoggerFactory;
+use ilLogLevel;
 use ilLPMarks;
 use ilMail;
 use ilObject;
@@ -42,6 +45,7 @@ class Schedule
     private string $notification_template = '';
     private ?string $last_run;
     private ?string $last_notification;
+    private ilLogger $logger;
 
     public const TEXTS = [
         self::USERS_ALL => "all_users",
@@ -65,6 +69,8 @@ class Schedule
         if ($this->id > 0) {
             $this->load($id);
         }
+
+        $this->logger = ilLoggerFactory::getLogger('silr.schedule');
     }
 
     /**
@@ -98,8 +104,12 @@ class Schedule
         $result = $DIC->database()->manipulateF($query, ['integer'], [$this->id]);
 
         if ($result) {
+            $this->logger->log("Schedule with ID {$this->id} was deleted by user " . $DIC->user()->getLogin());
+
             return true;
         } else {
+            $this->logger->log("Error deleting schedule with ID {$this->id} by user " . $DIC->user()->getLogin(), ilLogLevel::ERROR);
+
             return false;
         }
     }
@@ -134,6 +144,8 @@ class Schedule
             'last_notification' => ['timestamp', $this->last_notification ?? null],
 
         ]);
+
+        $this->logger->log("New schedule with ID {$this->id} was created by user " . $DIC->user()->getLogin());
     }
 
     private function update(): void
@@ -154,6 +166,8 @@ class Schedule
         ], [
             'id' => ['integer', $this->id]
         ]);
+
+        $this->logger->log("Schedule with ID {$this->id} was updated by user " . $DIC->user()->getLogin());
     }
 
     public function getId(): int
@@ -287,6 +301,8 @@ class Schedule
                 [$this->id, $object['id'], $object['id']]
             );
         }
+
+        $this->logger->log("Objects data for schedule with ID {$this->id} was saved by user " . $DIC->user()->getLogin());
     }
 
     public function saveUsersData(array $users): void
@@ -336,6 +352,8 @@ class Schedule
                 );
             }
         }
+
+        $this->logger->log("Users data for schedule with ID {$this->id} was saved by user " . $DIC->user()->getLogin());
     }
 
     public function getObjectsData(): array
@@ -526,6 +544,8 @@ class Schedule
             return false;
         }
 
+        $this->logger->log("Checking if schedule with ID {$this->id} should run", ilLogLevel::DEBUG);
+
         switch ($this->frequency) {
             case 'minutely':
                 $interval = (int) $frequency_data['interval'];
@@ -604,6 +624,8 @@ class Schedule
                 break;
         }
 
+        $this->logger->log("Schedule with ID {$this->id} should not run at this time", ilLogLevel::DEBUG);
+
         return false;
     }
 
@@ -633,6 +655,8 @@ class Schedule
         }
 
         $next_run = clone $today;
+
+        $this->logger->log("Checking if schedule with ID {$this->id} should notify", ilLogLevel::DEBUG);
 
         switch ($this->frequency) {
             case 'minutely':
@@ -688,6 +712,8 @@ class Schedule
             return true;
         }
 
+        $this->logger->log("Schedule with ID {$this->id} should not notify at this time", ilLogLevel::DEBUG);
+
         return false;
     }
 
@@ -698,14 +724,21 @@ class Schedule
     {
         $result = new ScheduleExecutionResult($this->getId(), $method);
 
+        $this->logger->log("Running schedule with ID {$this->id} using method " . ($method === self::METHOD_MANUAL ? 'manual' : 'automatic'), ilLogLevel::DEBUG);
+
+        $this->logger->log("Getting objects to reset for schedule with ID {$this->id}", ilLogLevel::DEBUG);
         $objects = $this->getObjectsToReset();
 
         if ($this->users === self::USERS_ALL) {
+            $this->logger->log("Resetting LP data for all users in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+
             foreach ($objects as $object) {
                 $lp_obj = ilObjectLP::getInstance(ilObject::_lookupObjectId($object['ref_id']));
                 $lp_obj->resetLPDataForCompleteObject();
             }
         } elseif ($this->users === self::USERS_SPECIFIC) {
+            $this->logger->log("Resetting LP data for specific users in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+
             foreach ($objects as $object) {
                 $lp_obj = ilObjectLP::getInstance(ilObject::_lookupObjectId($object['ref_id']));
                 $user_ids = [];
@@ -718,6 +751,8 @@ class Schedule
             }
         } elseif ($this->users === self::USERS_BY_ROLE) {
             global $DIC;
+
+            $this->logger->log("Resetting LP data for users by role in schedule with ID {$this->id}", ilLogLevel::DEBUG);
 
             foreach ($objects as $object) {
                 $obj_id = ilObject::_lookupObjectId($object['ref_id']);
@@ -740,6 +775,8 @@ class Schedule
                 $lp_obj->resetLPDataForUserIds($user_ids_filtered);
             }
         } elseif ($this->users === self::USERS_ALL_EXCEPT) {
+            $this->logger->log("Resetting LP data for all users except specified in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+
             foreach ($objects as $object) {
                 $obj_id = ilObject::_lookupObjectId($object['ref_id']);
                 $lp_obj = ilObjectLP::getInstance($obj_id);
@@ -755,6 +792,8 @@ class Schedule
                 $lp_obj->resetLPDataForUserIds($user_ids);
             }
         }
+
+        $this->logger->log("Schedule with ID {$this->id} has been executed", ilLogLevel::DEBUG);
 
         $this->setLastRun(date('Y-m-d H:i:s'));
         $this->save();
