@@ -923,7 +923,7 @@ class Schedule
             $lng->loadLanguageModule("ui_uihk_silr");
 
             $template_for_user = str_replace(
-                ['[name]', '[firstname]', '[last_name]', '[login]'],
+                ['[name]', '[firstname]', '[lastname]', '[login]'],
                 [$user->getFullname(), $user->getFirstname(), $user->getLastname(), $user->getLogin()],
                 $template
             );
