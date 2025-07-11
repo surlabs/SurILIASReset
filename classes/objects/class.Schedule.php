@@ -5,24 +5,26 @@ declare(strict_types=1);
 namespace classes\objects;
 
 use DateInterval;
+use DateInvalidOperationException;
 use DateMalformedIntervalStringException;
 use DateMalformedStringException;
 use DateTime;
 use Exception;
 use ilChangeEvent;
-use ilContainerReference;
 use ilLanguage;
 use ilLogger;
 use ilLoggerFactory;
 use ilLogLevel;
 use ilLPMarks;
 use ilMail;
+use ilObjCourseReference;
 use ilObject;
 use ilObjectLP;
-use ilObjStudyProgramme;
+use ilObjTest;
 use ilObjUser;
 use ilStudyProgrammeTreeException;
 use ilSurILIASResetPlugin;
+use ilTestLP;
 
 class Schedule
 {
@@ -104,11 +106,11 @@ class Schedule
         $result = $DIC->database()->manipulateF($query, ['integer'], [$this->id]);
 
         if ($result) {
-            $this->logger->log("Schedule with ID {$this->id} was deleted by user " . $DIC->user()->getLogin());
+            $this->logger->log("Schedule with ID $this->id was deleted by user " . $DIC->user()->getLogin());
 
             return true;
         } else {
-            $this->logger->log("Error deleting schedule with ID {$this->id} by user " . $DIC->user()->getLogin(), ilLogLevel::ERROR);
+            $this->logger->log("Error deleting schedule with ID $this->id by user " . $DIC->user()->getLogin(), ilLogLevel::ERROR);
 
             return false;
         }
@@ -145,7 +147,7 @@ class Schedule
 
         ]);
 
-        $this->logger->log("New schedule with ID {$this->id} was created by user " . $DIC->user()->getLogin());
+        $this->logger->log("New schedule with ID $this->id was created by user " . $DIC->user()->getLogin());
     }
 
     private function update(): void
@@ -167,7 +169,7 @@ class Schedule
             'id' => ['integer', $this->id]
         ]);
 
-        $this->logger->log("Schedule with ID {$this->id} was updated by user " . $DIC->user()->getLogin());
+        $this->logger->log("Schedule with ID $this->id was updated by user " . $DIC->user()->getLogin());
     }
 
     public function getId(): int
@@ -302,7 +304,7 @@ class Schedule
             );
         }
 
-        $this->logger->log("Objects data for schedule with ID {$this->id} was saved by user " . $DIC->user()->getLogin());
+        $this->logger->log("Objects data for schedule with ID $this->id was saved by user " . $DIC->user()->getLogin());
     }
 
     public function saveUsersData(array $users): void
@@ -353,7 +355,7 @@ class Schedule
             }
         }
 
-        $this->logger->log("Users data for schedule with ID {$this->id} was saved by user " . $DIC->user()->getLogin());
+        $this->logger->log("Users data for schedule with ID $this->id was saved by user " . $DIC->user()->getLogin());
     }
 
     public function getObjectsData(): array
@@ -473,7 +475,6 @@ class Schedule
     }
 
     /**
-     * @throws ilStudyProgrammeTreeException
      */
     private function getAffectedUsers(): array
     {
@@ -544,7 +545,7 @@ class Schedule
             return false;
         }
 
-        $this->logger->log("Checking if schedule with ID {$this->id} should run", ilLogLevel::DEBUG);
+        $this->logger->log("Checking if schedule with ID $this->id should run", ilLogLevel::DEBUG);
 
         switch ($this->frequency) {
             case 'minutely':
@@ -624,7 +625,7 @@ class Schedule
                 break;
         }
 
-        $this->logger->log("Schedule with ID {$this->id} should not run at this time", ilLogLevel::DEBUG);
+        $this->logger->log("Schedule with ID $this->id should not run at this time", ilLogLevel::DEBUG);
 
         return false;
     }
@@ -632,7 +633,7 @@ class Schedule
     /**
      * @throws DateMalformedStringException
      * @throws DateMalformedIntervalStringException
-     * @throws \DateInvalidOperationException
+     * @throws DateInvalidOperationException
      */
     public function shouldNotify(): bool
     {
@@ -656,7 +657,7 @@ class Schedule
 
         $next_run = clone $today;
 
-        $this->logger->log("Checking if schedule with ID {$this->id} should notify", ilLogLevel::DEBUG);
+        $this->logger->log("Checking if schedule with ID $this->id should notify", ilLogLevel::DEBUG);
 
         switch ($this->frequency) {
             case 'minutely':
@@ -712,7 +713,7 @@ class Schedule
             return true;
         }
 
-        $this->logger->log("Schedule with ID {$this->id} should not notify at this time", ilLogLevel::DEBUG);
+        $this->logger->log("Schedule with ID $this->id should not notify at this time", ilLogLevel::DEBUG);
 
         return false;
     }
@@ -724,27 +725,42 @@ class Schedule
     {
         $result = new ScheduleExecutionResult($this->getId(), $method);
 
-        $this->logger->log("Running schedule with ID {$this->id} using method " . ($method === self::METHOD_MANUAL ? 'manual' : 'automatic'), ilLogLevel::DEBUG);
+        $this->logger->log("Running schedule with ID $this->id using method " . ($method === self::METHOD_MANUAL ? 'manual' : 'automatic'), ilLogLevel::DEBUG);
 
-        $this->logger->log("Getting objects to reset for schedule with ID {$this->id}", ilLogLevel::DEBUG);
+        $this->logger->log("Getting objects to reset for schedule with ID $this->id", ilLogLevel::DEBUG);
         $objects = $this->getObjectsToReset();
 
         if ($this->users === self::USERS_ALL) {
-            $this->logger->log("Resetting LP data for all users in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+            $this->logger->log("Resetting LP data for all users in schedule with ID $this->id", ilLogLevel::DEBUG);
 
             foreach ($objects as $object) {
-                $lp_obj = ilObjectLP::getInstance(ilObject::_lookupObjectId($object['ref_id']));
+                $obj_id = ilObject::_lookupObjectId($object['ref_id']);
+                $lp_obj = ilObjectLP::getInstance($obj_id);
+
+                if ($object['type'] === 'tst') {
+                    if ($lp_obj instanceof ilTestLP) {
+                        $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
+                    }
+                }
+
                 $lp_obj->resetLPDataForCompleteObject();
             }
         } elseif ($this->users === self::USERS_SPECIFIC) {
-            $this->logger->log("Resetting LP data for specific users in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+            $this->logger->log("Resetting LP data for specific users in schedule with ID $this->id", ilLogLevel::DEBUG);
 
             foreach ($objects as $object) {
-                $lp_obj = ilObjectLP::getInstance(ilObject::_lookupObjectId($object['ref_id']));
+                $obj_id = ilObject::_lookupObjectId($object['ref_id']);
+                $lp_obj = ilObjectLP::getInstance($obj_id);
                 $user_ids = [];
 
                 foreach ($this->getUsersData()['specific_users'] as $user) {
                     $user_ids[] = $user['id'];
+                }
+
+                if ($object['type'] === 'tst') {
+                    if ($lp_obj instanceof ilTestLP) {
+                        $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
+                    }
                 }
 
                 $lp_obj->resetLPDataForUserIds($user_ids);
@@ -752,7 +768,7 @@ class Schedule
         } elseif ($this->users === self::USERS_BY_ROLE) {
             global $DIC;
 
-            $this->logger->log("Resetting LP data for users by role in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+            $this->logger->log("Resetting LP data for users by role in schedule with ID $this->id", ilLogLevel::DEBUG);
 
             foreach ($objects as $object) {
                 $obj_id = ilObject::_lookupObjectId($object['ref_id']);
@@ -764,7 +780,7 @@ class Schedule
                 foreach ($user_ids as $user_id) {
                     $user_roles = $DIC->rbac()->review()->assignedRoles($user_id);
 
-                    foreach ($this->getUsersData()['roles'] as $role) {
+                    foreach ($this->getUsersData()['role'] as $role) {
                         if (in_array($role['id'], $user_roles)) {
                             $user_ids_filtered[] = $user_id;
                             break;
@@ -772,10 +788,16 @@ class Schedule
                     }
                 }
 
+                if ($object['type'] === 'tst') {
+                    if ($lp_obj instanceof ilTestLP) {
+                        $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
+                    }
+                }
+
                 $lp_obj->resetLPDataForUserIds($user_ids_filtered);
             }
         } elseif ($this->users === self::USERS_ALL_EXCEPT) {
-            $this->logger->log("Resetting LP data for all users except specified in schedule with ID {$this->id}", ilLogLevel::DEBUG);
+            $this->logger->log("Resetting LP data for all users except specified in schedule with ID $this->id", ilLogLevel::DEBUG);
 
             foreach ($objects as $object) {
                 $obj_id = ilObject::_lookupObjectId($object['ref_id']);
@@ -789,11 +811,17 @@ class Schedule
                     });
                 }
 
+                if ($object['type'] === 'tst') {
+                    if ($lp_obj instanceof ilTestLP) {
+                        $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
+                    }
+                }
+
                 $lp_obj->resetLPDataForUserIds($user_ids);
             }
         }
 
-        $this->logger->log("Schedule with ID {$this->id} has been executed", ilLogLevel::DEBUG);
+        $this->logger->log("Schedule with ID $this->id has been executed", ilLogLevel::DEBUG);
 
         $this->setLastRun(date('Y-m-d H:i:s'));
         $this->save();
@@ -817,12 +845,13 @@ class Schedule
         $this->save();
     }
 
-    /**
-     * @throws ilStudyProgrammeTreeException
-     */
     public function getObjectsToReset(): array
     {
+        global $DIC;
+
         $objects = [];
+        $processed_refs = [];
+        $tree = $DIC->repositoryTree();
 
         foreach ($this->getObjectsData() as $object) {
             if (!$this->refExist($objects, $object['id'])) {
@@ -833,54 +862,45 @@ class Schedule
                     "type" => $type,
                 ];
 
-                if ($type == 'prg') {
-                    $prg = new ilObjStudyProgramme($object['id'], true);
-
-                    $children = $this->getChildrenFromStudyProgramme($prg);
-
-                    foreach ($children as $child) {
-                        if (!$this->refExist($objects, $child['ref_id'])) {
-                            $objects[] = [
-                                "ref_id" => $child['ref_id'],
-                                "type" => $child['type'],
-                            ];
-                        }
-                    }
+                if (!$tree->isInTree($object['id'])) {
+                    continue;
                 }
+
+                $this->getChildObjectsRecursive($tree, $object['id'], $objects, $processed_refs);
             }
         }
 
         return $objects;
     }
 
-    /**
-     * @throws ilStudyProgrammeTreeException
-     */
-    private function getChildrenFromStudyProgramme(ilObjStudyProgramme $prg): array
+    private function getChildObjectsRecursive($tree, $parent_ref_id, &$objects, &$processed_refs): void
     {
-        $children = [];
+        $children = $tree->getChilds($parent_ref_id);
 
-        foreach ($prg->getLPChildren() as $child) {
-            if (!$child instanceof ilContainerReference) {
-                continue;
-            }
+        foreach ($children as $child) {
+            if (!isset($processed_refs[$child['ref_id']])) {
+                $type = $child['type'] ?? ilObject::_lookupType(ilObject::_lookupObjectId($child['ref_id']));
 
-            $child_obj = ilObject::_lookupObjectId($child->getTargetRefId());
-            $type = ilObject::_lookupType($child_obj);
+                if ($type == "crsr") {
+                    $course = new ilObjCourseReference($child['ref_id']);
 
-            $children[] = [
-                "ref_id" => $child->getTargetRefId(),
-                "type" => $type
-            ];
+                    $ref_id = $course->getTargetRefId();
+                    $type = "crs";
+                } else {
+                    $ref_id = (int) $child['ref_id'];
+                }
 
-            if ($type == 'prg') {
-                $sub_prg = new ilObjStudyProgramme($child_obj, true);
+                $objects[] = [
+                    "ref_id" => $ref_id,
+                    "type" => $type
+                ];
 
-                $children = array_merge($children, $this->getChildrenFromStudyProgramme($sub_prg));
+                $processed_refs[$ref_id] = true;
+
+
+                $this->getChildObjectsRecursive($tree, $ref_id, $objects, $processed_refs);
             }
         }
-
-        return $children;
     }
 
     private function refExist(array $objects, int $ref_id): bool
@@ -1008,4 +1028,5 @@ class Schedule
 
         return [$date, $time];
     }
+
 }
