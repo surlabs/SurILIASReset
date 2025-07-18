@@ -2,22 +2,23 @@
 
 declare(strict_types=1);
 
-namespace classes\ui;
+namespace SurILIASReset\classes\ui;
 
-use classes\objects\Schedule;
 use Generator;
+use ilAdvancedSelectionListGUI;
 use ILIAS\Data\Order;
 use ILIAS\Data\Range;
-use ILIAS\UI\Component\Table\DataRetrieval;
-use ILIAS\UI\Component\Table\DataRowBuilder;
+use ILIAS\UI\Component\Table\RowFactory;
 use ilSurILIASResetPlugin;
+use ilTable2GUI;
+use SurILIASReset\classes\objects\Schedule;
 
-class SurILIASResetHistory implements DataRetrieval
+class SurILIASResetHistory extends ilTable2GUI
 {
     private array $records = [];
     private ilSurILIASResetPlugin $plugin;
 
-    public function __construct()
+    public function __construct($a_parent_obj, $a_parent_cmd)
     {
         global $DIC;
 
@@ -28,21 +29,28 @@ class SurILIASResetHistory implements DataRetrieval
         }
 
         $this->plugin = ilSurILIASResetPlugin::getInstance();
+
+        parent::__construct($a_parent_obj, $a_parent_cmd);
+
+        $this->addColumn($this->plugin->txt("name"), "name");
+        $this->addColumn($this->plugin->txt("date"), "date");
+        $this->addColumn($this->plugin->txt("method"), "method");
+        $this->addColumn($this->plugin->txt("count_of_affected_users"), "count");
+        $this->addColumn($this->plugin->txt("duration"), "duration");
+        $this->addColumn($this->plugin->txt("actions"), "actions");
+
+
+        $this->setRowTemplate("tpl.schedule_history_row.html", $this->plugin->getDirectory());
+
+        $this->setData($this->getRows());
     }
 
-    public function getRows(
-        DataRowBuilder $row_builder,
-        ?array         $visible_column_ids,
-        Range          $range,
-        Order          $order,
-        ?array         $filter_data,
-        ?array         $additional_parameters
-    ): Generator
+    public function getRows(): array
     {
-        $records_to_display = $this->getRecords();
+        $rows = [];
 
-        foreach ($records_to_display as $record) {
-            $record["count_of_affected_users"] = $this->countUsers($record["id"]);
+        foreach ($this->records as $record) {
+            $record["count_of_affected_users"] = $this->countUsers((int) $record["id"]);
 
             $record["method"] = $this->plugin->txt("method_" . Schedule::METHODS[$record["method"]]) ?? "Unknown";
 
@@ -50,21 +58,10 @@ class SurILIASResetHistory implements DataRetrieval
 
             $record["duration"] = $record["duration"] . " ms";
 
-            yield $row_builder->buildDataRow((string) $record["id"], $record);
+            $rows[] = $record;
         }
-    }
 
-    public function getTotalRowCount(
-        ?array $filter_data,
-        ?array $additional_parameters
-    ): ?int
-    {
-        return count($this->records);
-    }
-
-    protected function getRecords(): array
-    {
-        return $this->records;
+        return $rows;
     }
 
     private function countUsers(int $id): int
@@ -95,5 +92,27 @@ class SurILIASResetHistory implements DataRetrieval
         $record = $DIC->database()->fetchAssoc($result);
 
         return $record['name'] ?? '';
+    }
+
+    protected function fillRow($a_set)
+    {
+        $this->tpl->setVariable("VAL_NAME", $a_set["name"]);
+        $this->tpl->setVariable("VAL_DATE", $a_set["date"]);
+        $this->tpl->setVariable("VAL_METHOD", $a_set["method"]);
+        $this->tpl->setVariable("VAL_COUNT", $a_set["count_of_affected_users"]);
+        $this->tpl->setVariable("VAL_DURATION", $a_set["duration"]);
+
+        $actions = new ilAdvancedSelectionListGUI();
+        $actions->setListTitle($this->plugin->txt("actions"));
+        $actions->setId("actions_" . $a_set["id"]);
+        $actions->setUseImages(false);
+
+        $actions->addItem(
+            $this->lng->txt("view"),
+            "viewExecution",
+            $this->ctrl->getLinkTarget($this->parent_obj, "viewExecution") . "&execution_id=" . $a_set["id"]
+        );
+
+        $this->tpl->setVariable("VAL_ACTIONS", $actions->getHTML());
     }
 }

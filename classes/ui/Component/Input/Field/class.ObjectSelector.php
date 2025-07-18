@@ -2,26 +2,34 @@
 
 declare(strict_types=1);
 
-namespace Customizing\global\plugins\Services\UIComponent\UserInterfaceHook\SurILIASReset\classes\ui\Component\Input\Field;
+namespace SurILIASReset\classes\ui\Component\Input\Field;
 
 use Closure;
+use Exception;
+use Generator;
 use ilDatabaseException;
 use ILIAS\Data\Factory;
 use ILIAS\Refinery\Constraint;
-use ILIAS\UI\Component\Input\Field\Hidden;
+use ILIAS\Refinery\Transformation;
+use ILIAS\UI\Component\Input\Field\Text;
 use ILIAS\UI\Component\Signal;
-use ILIAS\UI\Implementation\Component\Input\Input;
+use ILIAS\UI\Implementation\Component\ComponentHelper;
+use ILIAS\UI\Implementation\Component\Input\Field\FormInputInternal;
+use ILIAS\UI\Implementation\Component\Input\InputData;
+use ILIAS\UI\Implementation\Component\Input\NameSource;
 use ILIAS\UI\Implementation\Component\JavaScriptBindable;
 use ILIAS\UI\Implementation\Component\Triggerer;
 use ilObject;
 use ilObjectFactory;
 use ilObjectNotFoundException;
+use LogicException;
 
 /**
  * Class ObjectSelector
  */
-class ObjectSelector extends Input implements Hidden
+class ObjectSelector implements Text, FormInputInternal
 {
+    use ComponentHelper;
     use JavaScriptBindable;
     use Triggerer;
 
@@ -30,9 +38,21 @@ class ObjectSelector extends Input implements Hidden
     protected bool $is_required = false;
     protected bool $is_disabled = false;
     protected ?Constraint $requirement_constraint = null;
+    private \ILIAS\Refinery\Factory $refinery;
     private array $allowed_types;
     private array $processed_objects = [];
     private array $tree = [];
+    protected $value = null;
+
+    protected $error = null;
+
+    protected $content = null;
+
+    private array $operations;
+    protected Factory $data_factory;
+
+    private $name = null;
+
 
     public function __construct(string $label, ?string $byline = null, array $allowed_types = [])
     {
@@ -42,16 +62,19 @@ class ObjectSelector extends Input implements Hidden
         $this->byline = $byline;
         $this->allowed_types = $allowed_types;
 
+        $this->refinery = $DIC->refinery();
+        $this->data_factory = new Factory();
+
         try {
             $this->buildTree();
-        } catch (ilObjectNotFoundException | ilDatabaseException) {
+        } catch (ilObjectNotFoundException | ilDatabaseException $ex) {
             $this->tree = [];
         }
 
-        parent::__construct(new Factory(), $DIC->refinery());
+        $this->operations = [];
     }
 
-    protected function isClientSideValueOk($value): bool
+    public function isClientSideValueOk($value): bool
     {
         if (is_array($value)) {
             foreach ($value as $item) {
@@ -75,7 +98,7 @@ class ObjectSelector extends Input implements Hidden
         return $this->label;
     }
 
-    public function withLabel(string $label): ObjectSelector
+    public function withLabel($label): ObjectSelector
     {
         $clone = clone $this;
         $clone->label = $label;
@@ -87,7 +110,7 @@ class ObjectSelector extends Input implements Hidden
         return $this->byline;
     }
 
-    public function withByline(string $byline): ObjectSelector
+    public function withByline($byline): ObjectSelector
     {
         $clone = clone $this;
         $clone->byline = $byline;
@@ -99,7 +122,7 @@ class ObjectSelector extends Input implements Hidden
         return $this->is_required;
     }
 
-    public function withRequired(bool $is_required, ?Constraint $requirement_constraint = null): ObjectSelector
+    public function withRequired($is_required, ?Constraint $requirement_constraint = null): ObjectSelector
     {
         $clone = clone $this;
         $clone->is_required = $is_required;
@@ -112,7 +135,7 @@ class ObjectSelector extends Input implements Hidden
         return $this->is_disabled;
     }
 
-    public function withDisabled(bool $is_disabled): ObjectSelector
+    public function withDisabled($is_disabled): ObjectSelector
     {
         $clone = clone $this;
         $clone->is_disabled = $is_disabled;
@@ -166,7 +189,7 @@ class ObjectSelector extends Input implements Hidden
         $this->processed_objects = [];
 
         // Build recursive tree
-        $root_tree = $this->buildTreeRecursive(ROOT_FOLDER_ID);
+        $root_tree = $this->buildTreeRecursive((int) ROOT_FOLDER_ID);
 
         // Add objects of allowed types
         foreach ($this->allowed_types as $type) {
@@ -220,7 +243,7 @@ class ObjectSelector extends Input implements Hidden
                     $this->processed_objects[$child['obj_id']] = true;
                 }
 
-                $child_tree = $this->buildTreeRecursive($child['ref_id'], $depth + 1);
+                $child_tree = $this->buildTreeRecursive((int) $child['ref_id'], $depth + 1);
 
                 if (in_array($child['type'], $this->allowed_types) || !empty($child_tree['children'])) {
                     $children_data[] = $child_tree;
@@ -238,5 +261,133 @@ class ObjectSelector extends Input implements Hidden
             'selectable' => in_array($node_data['type'], $this->allowed_types),
             'children' => $children_data
         ];
+    }
+
+    public function isComplex(): bool
+    {
+        return false;
+    }
+
+    public function getError()
+    {
+        return $this->error;
+    }
+
+    public function withError($error)
+    {
+        $clone = clone $this;
+        $clone->setError($error);
+
+        return $clone;
+    }
+
+    private function setError($error)
+    {
+        $this->checkStringArg("error", $error);
+        $this->error = $error;
+    }
+
+    public function getValue()
+    {
+        return $this->value;
+    }
+
+    public function withAdditionalTransformation(Transformation $trafo)
+    {
+        $clone = clone $this;
+        $clone->setAdditionalTransformation($trafo);
+
+        return $clone;
+    }
+
+    protected function setAdditionalTransformation(Transformation $trafo)
+    {
+        $this->operations[] = $trafo;
+        if ($this->content !== null) {
+            if (!$this->content->isError()) {
+                $this->content = $trafo->applyTo($this->content);
+            }
+            if ($this->content->isError()) {
+                $this->setError($this->content->error());
+            }
+        }
+    }
+
+    public function withNameFrom(NameSource $source)
+    {
+        $clone = clone $this;
+        $clone->name = $source->getNewName();
+
+        return $clone;
+    }
+
+    public function getName()
+    {
+        return $this->name;
+    }
+
+    public function withInput(InputData $input)
+    {
+        if ($this->getName() === null) {
+            throw new LogicException("Can only collect if input has a name.");
+        }
+
+        //TODO: Discuss, is this correct here. If there is no input contained in this post
+        //We assign null. Note that unset checkboxes are not contained in POST.
+        if (!$this->isDisabled()) {
+            $value = $input->getOr($this->getName(), null);
+            // ATTENTION: There was a special case for the Filter Input Container here,
+            // which lead to #27909. The issue will most certainly appear again in. If
+            // you are the one debugging it and came here: Please don't put knowledge
+            // of the special case for the filter in this general class. Have a look
+            // into https://mantis.ilias.de/view.php?id=27909 for the according discussion.
+            $clone = $this->withValue($value);
+        } else {
+            $clone = $this;
+        }
+
+        $clone->content = $this->applyOperationsTo($clone->getValue());
+        if ($clone->content->isError()) {
+            $error = $clone->content->error();
+            if ($error instanceof Exception) {
+                $error = $error->getMessage();
+            }
+            return $clone->withError("" . $error);
+        }
+
+        return $clone;
+    }
+
+    protected function applyOperationsTo($res)
+    {
+        if ($res === null && !$this->isRequired()) {
+            return $this->data_factory->ok($res);
+        }
+
+        $res = $this->data_factory->ok($res);
+        foreach ($this->getOperations() as $op) {
+            if ($res->isError()) {
+                return $res;
+            }
+
+            $res = $op->applyTo($res);
+        }
+
+        return $res;
+    }
+
+    private function getOperations(): Generator
+    {
+        foreach ($this->operations as $op) {
+            yield $op;
+        }
+    }
+
+    public function getContent()
+    {
+        if (is_null($this->content)) {
+            throw new LogicException("No content of this field has been evaluated yet. Seems withRequest was not called.");
+        }
+        return $this->content;
     }
 }

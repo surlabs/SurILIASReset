@@ -76,7 +76,7 @@ $(document).ready(function() {
         $(".ilSurILIASResetTreeNode").each(function() {
             const objectSelector = $(".objectSelectorResult").parent().attr("objectSelector");
             const nodeId = $(this).attr("data-id");
-            const nodeTitle = $(this).find(".c-tree__node__label").text().trim();
+            const nodeTitle = $(this).find(".node-label").text().trim();
 
 
             if ($(this).find(".obj-node[objectSelector-id='" + objectSelector + "'][node-id='" + nodeId + "']").length === 0) {

@@ -2,12 +2,9 @@
 
 declare(strict_types=1);
 
-namespace classes\objects;
+namespace SurILIASReset\classes\objects;
 
 use DateInterval;
-use DateInvalidOperationException;
-use DateMalformedIntervalStringException;
-use DateMalformedStringException;
 use DateTime;
 use Exception;
 use ilChangeEvent;
@@ -86,13 +83,18 @@ class Schedule
         $result = $DIC->database()->queryF($query, ['integer'], [$id]);
 
         if ($record = $DIC->database()->fetchAssoc($result)) {
-            foreach ($record as $key => $value) {
-                if ($key === 'email_notifications') {
-                    $value = (bool) $value;
-                }
-
-                $this->{$key} = $value;
-            }
+            $this->id = (int) $record['id'];
+            $this->name = $record['name'] ?? '';
+            $this->users = (int) $record['users'];
+            $this->frequency = $record['frequency'] ?? '';
+            $this->frequency_data = $record['frequency_data'] ?? '';
+            $this->created_at = $record['created_at'] ?? date('Y-m-d H:i:s');
+            $this->email_notifications = (bool) $record['email_notifications'];
+            $this->days_in_advance = (int) $record['days_in_advance'];
+            $this->notification_subject = $record['notification_subject'] ?? '';
+            $this->notification_template = $record['notification_template'] ?? '';
+            $this->last_run = $record['last_run'] ?? null;
+            $this->last_notification = $record['last_notification'] ?? null;
         } else {
             throw new Exception("Schedule with ID $id not found.");
         }
@@ -129,7 +131,7 @@ class Schedule
     {
         global $DIC;
 
-        $this->id = $DIC->database()->nextId('silr_schedules');
+        $this->id = (int) $DIC->database()->nextId('silr_schedules');
 
         $DIC->database()->insert('silr_schedules', [
             'id' => ['integer', $this->id],
@@ -528,9 +530,6 @@ class Schedule
     }
 
 
-    /**
-     * @throws DateMalformedStringException
-     */
     public function shouldRun(): bool
     {
         if ($this->frequency == "manual") {
@@ -630,11 +629,6 @@ class Schedule
         return false;
     }
 
-    /**
-     * @throws DateMalformedStringException
-     * @throws DateMalformedIntervalStringException
-     * @throws DateInvalidOperationException
-     */
     public function shouldNotify(): bool
     {
         if (!$this->email_notifications) {
@@ -831,11 +825,6 @@ class Schedule
         return $result;
     }
 
-    /**
-     * @throws DateMalformedStringException
-     * @throws ilStudyProgrammeTreeException
-     * @throws DateMalformedIntervalStringException
-     */
     public function notify(): void
     {
         $this->sendNotification();
@@ -854,7 +843,7 @@ class Schedule
         $tree = $DIC->repositoryTree();
 
         foreach ($this->getObjectsData() as $object) {
-            if (!$this->refExist($objects, $object['id'])) {
+            if (!$this->refExist($objects, (int) $object['id'])) {
                 $type = ilObject::_lookupType(ilObject::_lookupObjectId($object['id']));
 
                 $objects[] = [
@@ -913,10 +902,6 @@ class Schedule
         return false;
     }
 
-    /**
-     * @throws DateMalformedStringException
-     * @throws DateMalformedIntervalStringException|ilStudyProgrammeTreeException
-     */
     public function sendNotification(?string $subject = null, ?string $text = null): void
     {
         $subject = $subject ?? $this->getNotificationSubject();
@@ -959,11 +944,7 @@ class Schedule
         }
     }
 
-    /**
-     * @throws DateMalformedStringException
-     * @throws DateMalformedIntervalStringException
-     */
-    private function calculateDateAndTime(): array
+private function calculateDateAndTime(): array
     {
         $today = new DateTime();
         $date = $today->format('Y-m-d');

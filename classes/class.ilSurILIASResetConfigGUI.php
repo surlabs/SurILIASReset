@@ -2,17 +2,15 @@
 
 declare(strict_types=1);
 
-use classes\objects\Schedule;
-use classes\objects\ScheduleExecutionResult;
-use classes\ui\SurILIASResetHistory;
-use classes\ui\SurILIASResetList;
-use Customizing\global\plugins\Services\UIComponent\UserInterfaceHook\SurILIASReset\classes\ui\Component\CustomFactory;
-use ILIAS\HTTP\Wrapper\WrapperFactory;
 use ILIAS\UI\Component\Input\Field\Group;
 use ILIAS\UI\Factory;
 use ILIAS\UI\Renderer;
 use ILIAS\UI\URLBuilder;
-use JetBrains\PhpStorm\NoReturn;
+use SurILIASReset\classes\objects\Schedule;
+use SurILIASReset\classes\objects\ScheduleExecutionResult;
+use SurILIASReset\classes\ui\Component\CustomFactory;
+use SurILIASReset\classes\ui\SurILIASResetHistory;
+use SurILIASReset\classes\ui\SurILIASResetList;
 
 /**
  * Class ilSurILIASResetConfigGUI
@@ -28,14 +26,13 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     protected Factory $factory;
     protected Renderer $renderer;
     protected ilLanguage $language;
-    protected WrapperFactory $wrapper;
     protected ILIAS\Refinery\Factory $refinery;
     private $request;
 
     /**
      * @throws ilCtrlException
      */
-    public function performCommand(string $cmd): void
+    public function performCommand($cmd): void
     {
         global $DIC;
 
@@ -47,7 +44,6 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $this->customFactory = new CustomFactory();
         $this->renderer = $DIC->ui()->renderer();
         $this->language = $DIC->language();
-        $this->wrapper = $DIC->http()->wrapper();
         $this->refinery = $DIC->refinery();
         $this->request = $DIC->http()->request();
 
@@ -76,7 +72,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     {
         $this->tabs->clearSubTabs();
 
-        $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $_GET["schedule_id"] ?? 0);
 
         $this->tabs->addSubTab('edit', $this->language->txt('edit'), $this->ctrl->getLinkTarget($this, 'editSchedule'));
         $this->tabs->addSubTab('delete', $this->language->txt('delete'), $this->ctrl->getLinkTarget($this, 'deleteSchedule'));
@@ -94,70 +90,9 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $this->tabs->activateTab('list');
 
-        $columns = [
-            "name" => $this->factory->table()->column()->text($this->plugin->txt("name")),
-            "count" => $this->factory->table()->column()->text($this->plugin->txt("count_of_programs_or_courses")),
-            "users" => $this->factory->table()->column()->text($this->plugin->txt("users")),
-            "frequency" => $this->factory->table()->column()->text($this->plugin->txt("frequency")),
-            "last_run" => $this->factory->table()->column()->text($this->plugin->txt("last_run")),
-        ];
+        $table = new SurILIASResetList($this, "configure");
 
-        $df = new \ILIAS\Data\Factory();
-        $here_uri = $df->uri($DIC->http()->request()->getUri()->__toString());
-        $url_builder = new URLBuilder($here_uri);
-
-        $query_params_namespace = ['schedule_table'];
-        list($url_builder, $id_token, $action_token) = $url_builder->acquireParameters(
-            $query_params_namespace,
-            "relay_param",
-            "action"
-        );
-
-        $query = $this->wrapper->query();
-        if ($query->has($action_token->getName())) {
-            $action = $query->retrieve($action_token->getName(), $this->refinery->to()->string());
-            $ids = $query->retrieve($id_token->getName(), $this->refinery->custom()->transformation(fn($v) => $v));
-            $id = $ids[0] ?? null;
-
-            switch ($action) {
-                case "edit":
-                    $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $id);
-                    $this->ctrl->redirectByClass('ilSurILIASResetConfigGUI', 'editSchedule');
-                    break;
-                case "delete":
-                    $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $id);
-                    $this->ctrl->redirectByClass('ilSurILIASResetConfigGUI', 'deleteSchedule');
-                    break;
-                case "run":
-                    $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'schedule_id', $id);
-                    $this->ctrl->redirectByClass('ilSurILIASResetConfigGUI', 'runSchedule');
-                    break;
-            }
-        }
-
-        $data_provider = new SurILIASResetList();
-
-        $actions = [
-            $this->factory->table()->action()->single(
-                $this->language->txt('edit'),
-                $url_builder->withParameter($action_token, "edit"),
-                $id_token
-            ),
-            $this->factory->table()->action()->single(
-                $this->language->txt('delete'),
-                $url_builder->withParameter($action_token, "delete"),
-                $id_token
-            ),
-            $this->factory->table()->action()->single(
-                $this->plugin->txt('run'),
-                $url_builder->withParameter($action_token, "run"),
-                $id_token
-            ),
-        ];
-
-        $table_component = $this->factory->table()->data('', $columns, $data_provider)->withRequest($this->request)->withActions($actions);
-
-        $this->tpl->setContent($this->renderer->render($table_component));
+        $this->tpl->setContent($table->getHTML());
     }
 
     /**
@@ -182,7 +117,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $this->tabs->activateTab('list');
 
-        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $schedule = new Schedule((int)$_GET["schedule_id"] ?? 0);
 
         $this->tpl->setTitle($this->language->txt('edit') . ': ' . $schedule->getName());
 
@@ -199,7 +134,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $this->tabs->activateTab('list');
 
-        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $schedule = new Schedule((int)$_GET["schedule_id"] ?? 0);
 
         $this->tpl->setTitle($this->language->txt('delete') . ': ' . $schedule->getName());
 
@@ -230,7 +165,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
      */
     public function confirmDeleteSchedule(): void
     {
-        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $schedule = new Schedule((int)$_GET["schedule_id"] ?? 0);
 
         if ($schedule->delete()) {
             $this->tpl->setOnScreenMessage("success", $this->plugin->txt("schedule_deleted"), true);
@@ -256,7 +191,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $this->tabs->activateTab('list');
 
-        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $schedule = new Schedule((int)$_GET["schedule_id"] ?? 0);
 
         $this->tpl->setTitle($this->plugin->txt('run') . ': ' . $schedule->getName());
 
@@ -313,7 +248,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             return;
         }
 
-        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $schedule = new Schedule((int)$_GET["schedule_id"] ?? 0);
 
         try {
             $schedule->run(Schedule::METHOD_MANUAL);
@@ -328,13 +263,13 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     /**
      * @throws Exception
      */
-    #[NoReturn] public function sendNotification(): void
+    public function sendNotification(): void
     {
-        $schedule = new Schedule((int) $this->wrapper->query()->retrieve('schedule_id', $this->refinery->to()->string()));
+        $schedule = new Schedule((int)$_GET["schedule_id"] ?? 0);
 
         $schedule->sendNotification(
-            $this->wrapper->post()->retrieve('notification_subject', $this->refinery->to()->string()),
-            $this->wrapper->post()->retrieve('notification_manual', $this->refinery->to()->string())
+            $_POST['notification_subject'] ?? '',
+            $_POST['notification_manual'] ?? ''
         );
 
         http_response_code(200);
@@ -368,7 +303,11 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     {
         $inputs = [];
 
-        $inputs['id'] = $this->factory->input()->field()->hidden()->withValue($schedule ? $schedule->getId() : '');
+        $inputs['id'] = $this->factory->input()->field()->text("")->withValue($schedule ? (string) $schedule->getId() : '')->withOnLoadCode(
+            function ($id) {
+                return "$('#{$id}').css('display', 'none');";
+            }
+        );
 
         $inputs['name'] = $this->factory->input()->field()->text($this->plugin->txt('name'))
             ->withValue($schedule ? $schedule->getName() : '')
@@ -420,7 +359,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $frequency_type = $this->factory->input()->field()->switchableGroup([
             "minutely" => $this->buildFrequencyGroup("minutely"),
-            "hourly" =>$this->buildFrequencyGroup("hourly"),
+            "hourly" => $this->buildFrequencyGroup("hourly"),
             "daily" => $this->buildFrequencyGroup("daily"),
             "weekly" => $this->buildFrequencyGroup("weekly"),
             "monthly" => $this->buildFrequencyGroup("monthly"),
@@ -452,7 +391,9 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             "subject" => $this->factory->input()->field()->text($this->plugin->txt('subject'), $this->plugin->txt('subject_info'))
                 ->withValue($schedule ? $schedule->getNotificationSubject() : ""),
             "template" => $this->factory->input()->field()->textarea($this->plugin->txt('template'), $this->plugin->txt('template_info'))
-                ->withValue($schedule ? $schedule->getNotificationTemplate() : "")->withAdditionalOnLoadCode(function ($id) {return "initEmailPreview('$id')";}),
+                ->withValue($schedule ? $schedule->getNotificationTemplate() : "")->withAdditionalOnLoadCode(function ($id) {
+                    return "initEmailPreview('$id')";
+                }),
         ], $this->plugin->txt('notifications'));
 
         return $inputs;
@@ -518,11 +459,11 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
     private function saveForm(array $data): void
     {
         try {
-            $schedule = new Schedule((int) $data['id'] ?? 0);
+            $schedule = new Schedule((int)$data['id'] ?? 0);
 
             $schedule->setName($data['name']);
 
-            $schedule->setUsers((int) $data['users']['users'][0] ?? Schedule::USERS_ALL);
+            $schedule->setUsers((int)$data['users']['users'][0] ?? Schedule::USERS_ALL);
 
             $frequency = $data['frequency']['frequency'][0] ?? 'manual';
             $frequency_data = [];
@@ -537,14 +478,14 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                     case 'weekly':
                     case 'monthly':
                     case 'yearly':
-                        $frequency_data['interval'] = (int) ($data['frequency']['frequency'][1]['frequency_type'][1]['interval'] ?? 1);
+                        $frequency_data['interval'] = (int)($data['frequency']['frequency'][1]['frequency_type'][1]['interval'] ?? 1);
                         break;
                     case 'day_of_week':
-                        $frequency_data['day'] = (int) ($data['frequency']['frequency'][1]['frequency_type'][1]['day'] ?? 0);
+                        $frequency_data['day'] = (int)($data['frequency']['frequency'][1]['frequency_type'][1]['day'] ?? 0);
                         break;
                     case 'day_of_year':
-                        $frequency_data['day'] = (int) ($data['frequency']['frequency'][1]['frequency_type'][1]['day'] ?? 1);
-                        $frequency_data['month'] = (int) ($data['frequency']['frequency'][1]['frequency_type'][1]['month'] ?? 1);
+                        $frequency_data['day'] = (int)($data['frequency']['frequency'][1]['frequency_type'][1]['day'] ?? 1);
+                        $frequency_data['month'] = (int)($data['frequency']['frequency'][1]['frequency_type'][1]['month'] ?? 1);
                         break;
                     default:
                         throw new Exception("Invalid frequency type: $frequency");
@@ -554,7 +495,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             $schedule->setFrequency($frequency, $frequency_data);
 
             $schedule->setEmailEnabled($data['notifications']['email_enabled'] ?? false);
-            $schedule->setDaysInAdvance((int) ($data['notifications']['days_in_advance'] ?? 0));
+            $schedule->setDaysInAdvance((int)($data['notifications']['days_in_advance'] ?? 0));
             $schedule->setNotificationSubject($data['notifications']['subject'] ?? '');
             $schedule->setNotificationTemplate($data['notifications']['template'] ?? '');
 
@@ -564,7 +505,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             $schedule->saveUsersData($data['users']['users'][1] ?? []);
 
             $this->tpl->setOnScreenMessage("success", $this->plugin->txt("schedule_saved"), true);
-        } catch (Exception) {
+        } catch (Exception $ex) {
             $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("schedule_save_failed"), true);
         }
     }
@@ -612,55 +553,9 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
 
         $this->tpl->setTitle($this->plugin->txt('execution_history'));
 
-        $columns = array(
-            "name" => $this->factory->table()->column()->text($this->plugin->txt("name")),
-            "date" => $this->factory->table()->column()->text($this->language->txt("date")),
-            "method" => $this->factory->table()->column()->text($this->plugin->txt("method")),
-            "count_of_affected_users" => $this->factory->table()->column()->text($this->plugin->txt("count_of_affected_users")),
-            "duration" => $this->factory->table()->column()->text($this->plugin->txt("duration")),
-        );
+        $table = new SurILIASResetHistory($this, "history");
 
-        $df = new \ILIAS\Data\Factory();
-        $here_uri = $df->uri($this->request->getUri()->__toString());
-        $url_builder = new URLBuilder($here_uri);
-
-        $query_params_namespace = ['history_table'];
-        list($url_builder, $id_token, $action_token) = $url_builder->acquireParameters(
-            $query_params_namespace,
-            "relay_param",
-            "action"
-        );
-
-        $query = $this->wrapper->query();
-
-        if ($query->has($action_token->getName())) {
-            $action = $query->retrieve($action_token->getName(), $this->refinery->to()->string());
-            $ids = $query->retrieve($id_token->getName(), $this->refinery->custom()->transformation(fn($v) => $v));
-            $id = $ids[0] ?? null;
-
-            switch ($action) {
-                case "view":
-                    $this->ctrl->setParameterByClass('ilSurILIASResetConfigGUI', 'execution_id', $id);
-                    $this->ctrl->redirectByClass('ilSurILIASResetConfigGUI', 'viewExecution');
-                    break;
-            }
-        }
-
-        $data_provider = new SurILIASResetHistory();
-
-        $actions = [
-            $this->factory->table()->action()->single(
-                $this->language->txt('view'),
-                $url_builder->withParameter($action_token, "view"),
-                $id_token
-            ),
-        ];
-
-        $table_component = $this->factory->table()->data('', $columns, $data_provider)
-            ->withRequest($this->request)
-            ->withActions($actions);
-
-        $this->tpl->setContent($this->renderer->render($table_component));
+        $this->tpl->setContent($table->getHTML());
     }
 
     /**
@@ -674,7 +569,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
         $this->tabs->activateTab('history');
         $this->tabs->setBackTarget($this->plugin->txt('back_to_history'), $this->ctrl->getLinkTarget($this, 'history'));
 
-        $execution_id = (int) $this->wrapper->query()->retrieve('execution_id', $this->refinery->to()->string());
+        $execution_id = (int) $_GET["execution_id"];
         $execution = ScheduleExecutionResult::getById($execution_id);
 
         if (empty($execution)) {
@@ -709,7 +604,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             [
                 $this->factory->panel()->sub(
                     $this->language->txt('date'),
-                    $this->factory->legacy((string) $execution['date'])
+                    $this->factory->legacy((string)$execution['date'])
                 ),
                 $this->factory->panel()->sub(
                     $this->plugin->txt('method'),

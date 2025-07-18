@@ -2,22 +2,23 @@
 
 declare(strict_types=1);
 
-namespace classes\ui;
+namespace SurILIASReset\classes\ui;
 
-use classes\objects\Schedule;
 use Generator;
+use ilAdvancedSelectionListGUI;
 use ILIAS\Data\Order;
 use ILIAS\Data\Range;
-use ILIAS\UI\Component\Table\DataRetrieval;
-use ILIAS\UI\Component\Table\DataRowBuilder;
+use ILIAS\UI\Component\Table\RowFactory;
 use ilSurILIASResetPlugin;
+use ilTable2GUI;
+use SurILIASReset\classes\objects\Schedule;
 
-class SurILIASResetList implements DataRetrieval
+class SurILIASResetList extends ilTable2GUI
 {
     private array $records = [];
     private ilSurILIASResetPlugin $plugin;
 
-    public function __construct()
+    public function __construct($a_parent_obj, $a_parent_cmd)
     {
         global $DIC;
 
@@ -28,41 +29,36 @@ class SurILIASResetList implements DataRetrieval
         }
 
         $this->plugin = ilSurILIASResetPlugin::getInstance();
+
+        parent::__construct($a_parent_obj, $a_parent_cmd);
+
+        $this->addColumn($this->plugin->txt("name"), "name");
+        $this->addColumn($this->plugin->txt("count_of_programs_or_courses"), "count");
+        $this->addColumn($this->plugin->txt("users"), "users");
+        $this->addColumn($this->plugin->txt("frequency"), "frequency");
+        $this->addColumn($this->plugin->txt("last_run"), "last_run");
+        $this->addColumn($this->plugin->txt("actions"), "actions");
+
+        $this->setRowTemplate("tpl.schedule_list_row.html", $this->plugin->getDirectory());
+
+        $this->setData($this->getRows());
     }
 
-    public function getRows(
-        DataRowBuilder $row_builder,
-        ?array         $visible_column_ids,
-        Range          $range,
-        Order          $order,
-        ?array         $filter_data,
-        ?array         $additional_parameters
-    ): Generator
+    public function getRows(): array
     {
-        $records_to_display = $this->getRecords();
+        $rows = [];
 
-        foreach ($records_to_display as $record) {
+        foreach ($this->records as $record) {
             $record["frequency"] = $this->formatFrequencyText($record["frequency"], $record["frequency_data"]);
 
             $record["users"] = $this->plugin->txt(Schedule::TEXTS[$record["users"]]);
 
-            $record["count"] = $this->countObjects($record["id"]);
+            $record["count"] = $this->countObjects((int) $record["id"]);
 
-            yield $row_builder->buildDataRow((string) $record["id"], $record);
+            $rows[] = $record;
         }
-    }
 
-    public function getTotalRowCount(
-        ?array $filter_data,
-        ?array $additional_parameters
-    ): ?int
-    {
-        return count($this->records);
-    }
-
-    protected function getRecords(): array
-    {
-        return $this->records;
+        return $rows;
     }
 
     private function formatFrequencyText(string $frequency, string $data): string
@@ -194,7 +190,7 @@ class SurILIASResetList implements DataRetrieval
         return $this->plugin->txt($monthKeys[$monthIndex]);
     }
 
-    private function formatOrdinalNumber(int $number): int|string
+    private function formatOrdinalNumber(int $number)
     {
         $lastDigit = $number % 10;
         $lastTwoDigits = $number % 100;
@@ -202,13 +198,17 @@ class SurILIASResetList implements DataRetrieval
         if ($lastTwoDigits >= 11 && $lastTwoDigits <= 13) {
             return $number . $this->plugin->txt('frequency_ordinal_th');
         }
-
-        return match ($lastDigit) {
-            1 => $number . $this->plugin->txt('frequency_ordinal_st'),
-            2 => $number . $this->plugin->txt('frequency_ordinal_nd'),
-            3 => $number . $this->plugin->txt('frequency_ordinal_rd'),
-            default => $number . $this->plugin->txt('frequency_ordinal_th'),
-        };
+        
+        switch ($lastDigit) {
+            case 1:
+                return $number . $this->plugin->txt('frequency_ordinal_st');
+            case 2:
+                return $number . $this->plugin->txt('frequency_ordinal_nd');
+            case 3:
+                return $number . $this->plugin->txt('frequency_ordinal_rd');
+            default:
+                return $number . $this->plugin->txt('frequency_ordinal_th');
+        }
     }
 
     private function countObjects(int $id): int
@@ -224,5 +224,39 @@ class SurILIASResetList implements DataRetrieval
         $record = $DIC->database()->fetchAssoc($result);
 
         return (int) ($record['count'] ?? 0);
+    }
+
+    protected function fillRow($a_set)
+    {
+        $this->tpl->setVariable("VAL_NAME", $a_set["name"]);
+        $this->tpl->setVariable("VAL_COUNT", $a_set["count"]);
+        $this->tpl->setVariable("VAL_USERS",  $a_set["users"]);
+        $this->tpl->setVariable("VAL_FREQUENCY", $a_set["frequency"]);
+        $this->tpl->setVariable("VAL_LAST_RUN", $a_set["last_run"]);
+
+        $actions = new ilAdvancedSelectionListGUI();
+        $actions->setListTitle($this->plugin->txt("actions"));
+        $actions->setId("actions_" . $a_set["id"]);
+        $actions->setUseImages(false);
+
+        $actions->addItem(
+            $this->lng->txt("edit"),
+            "editSchedule",
+            $this->ctrl->getLinkTarget($this->parent_obj, "editSchedule") . "&schedule_id=" . $a_set["id"]
+        );
+
+        $actions->addItem(
+            $this->plugin->txt("run"),
+            "runSchedule",
+            $this->ctrl->getLinkTarget($this->parent_obj, "runSchedule") . "&schedule_id=" . $a_set["id"]
+        );
+
+        $actions->addItem(
+            $this->lng->txt("delete"),
+            "deleteSchedule",
+            $this->ctrl->getLinkTarget($this->parent_obj, "deleteSchedule") . "&schedule_id=" . $a_set["id"]
+        );
+
+        $this->tpl->setVariable("VAL_ACTIONS", $actions->getHTML());
     }
 }

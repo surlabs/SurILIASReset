@@ -2,25 +2,15 @@
 
 declare(strict_types=1);
 
-class ilSurILIASResetPlugin extends ilUserInterfaceHookPlugin implements ilCronJobProvider
+class ilSurILIASResetPlugin extends ilCronHookPlugin
 {
     public const PLUGIN_NAME = "SurILIASReset";
-    private static ilSurILIASResetPlugin $instance;
+    private static $instance;
 
     public static function getInstance()
     {
         if (!isset(self::$instance)) {
-            global $DIC;
-
-            $component_repository = $DIC["component.repository"];
-
-            $info = $component_repository->getPluginByName(self::PLUGIN_NAME);
-
-            $component_factory = $DIC["component.factory"];
-
-            $plugin_obj = $component_factory->getPlugin($info->getId());
-
-            self::$instance = $plugin_obj;
+            self::$instance = new self();
         }
 
         return self::$instance;
@@ -38,5 +28,10 @@ class ilSurILIASResetPlugin extends ilUserInterfaceHookPlugin implements ilCronJ
     public function getCronJobInstances(): array
     {
         return [new ilSurILIASResetCron()];
+    }
+
+    public function getPluginName(): string
+    {
+        return self::PLUGIN_NAME;
     }
 }

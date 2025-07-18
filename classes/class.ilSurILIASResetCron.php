@@ -1,13 +1,12 @@
 <?php
 declare(strict_types=1);
 
-use classes\objects\Schedule;
-use ILIAS\Cron\Schedule\CronJobScheduleType;
+use SurILIASReset\classes\objects\Schedule;
 
 class ilSurILIASResetCron extends ilCronJob
 {
     public const ID = 'sur_ilias_reset';
-    private ilSurILIASResetPlugin $plugin;
+    private $plugin;
 
     public function __construct()
     {
@@ -39,9 +38,9 @@ class ilSurILIASResetCron extends ilCronJob
         return true;
     }
 
-    public function getDefaultScheduleType(): CronJobScheduleType
+    public function getDefaultScheduleType(): int
     {
-        return CronJobScheduleType::SCHEDULE_TYPE_DAILY;
+        return self::SCHEDULE_TYPE_DAILY;
     }
 
     public function getDefaultScheduleValue(): ?int
@@ -55,7 +54,8 @@ class ilSurILIASResetCron extends ilCronJob
         $cronResult = new ilCronJobResult();
 
         try {
-            $query = /** @lang text */ "SELECT id FROM silr_schedules WHERE NOT frequency = 'manual'";
+            $query = /** @lang text */
+                "SELECT id FROM silr_schedules WHERE NOT frequency = 'manual'";
             $result = $DIC->database()->query($query);
 
             while ($row = $result->fetchAssoc()) {

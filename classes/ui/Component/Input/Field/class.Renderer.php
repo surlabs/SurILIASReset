@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Customizing\global\plugins\Services\UIComponent\UserInterfaceHook\SurILIASReset\classes\ui\Component\Input\Field;
+namespace SurILIASReset\classes\ui\Component\Input\Field;
 
 use ILIAS\UI\Component\Component;
-use ILIAS\UI\Component\Input\Container\Form\FormInput;
+use ILIAS\UI\Component\Input\Field\FormInput;
 use ILIAS\UI\Component\Tree\Node\Factory;
 use ILIAS\UI\Component\Tree\Node\Node;
 use ILIAS\UI\Component\Tree\TreeRecursion;
@@ -31,8 +31,8 @@ class Renderer extends RendererILIAS
     {
         global $DIC;
 
-        $DIC->ui()->mainTemplate()->addJavaScript('Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/SurILIASReset/templates/Component/Input/Field/customField.js');
-        $DIC->ui()->mainTemplate()->addCss('Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/SurILIASReset/templates/Component/Input/Field/customField.css');
+        $DIC->ui()->mainTemplate()->addJavaScript('Customizing/global/plugins/Services/Cron/CronHook/SurILIASReset/templates/Component/Input/Field/customField.js');
+        $DIC->ui()->mainTemplate()->addCss('Customizing/global/plugins/Services/Cron/CronHook/SurILIASReset/templates/Component/Input/Field/customField.css');
 
         if (isset($default_renderer)) {
             $this->default_renderer = $default_renderer;
@@ -40,11 +40,14 @@ class Renderer extends RendererILIAS
             $this->default_renderer = $DIC->ui()->renderer();
         }
 
-        return match (true) {
-            $component instanceof ObjectSelector => $this->renderObjectSelector($component),
-            $component instanceof MultipleSelector => $this->renderMultipleSelector($component),
-            default => $this->default_renderer->render($component),
-        };
+        switch (true) {
+            case $component instanceof ObjectSelector:
+                return $this->renderObjectSelector($component);
+            case $component instanceof MultipleSelector:
+                return $this->renderMultipleSelector($component);
+            default:
+                return $this->default_renderer->render($component);
+        }
     }
 
     /**
@@ -90,28 +93,28 @@ class Renderer extends RendererILIAS
         return $tpl->get();
     }
 
-    protected function maybeDisable(FormInput $component, ilTemplate|Template $tpl): void
+    protected function maybeDisable(FormInput $component, $tpl): void
     {
         if ($component->isDisabled()) {
             $tpl->setVariable("DISABLED", 'disabled="disabled"');
         }
     }
 
-    protected function applyName(FormInput $component, ilTemplate|Template $tpl): ?string
+    protected function applyName(FormInput $component, $tpl): ?string
     {
         $name = $component->getName();
         $tpl->setVariable("NAME", $name);
         return $name;
     }
 
-    protected function bindJSandApplyId(FormInput $component, ilTemplate|Template $tpl): string
+    protected function bindJSandApplyId(FormInput $component, $tpl): string
     {
         $id = $this->bindJavaScript($component) ?? $this->createId();
         $tpl->setVariable("ID", $id);
         return $id;
     }
 
-    protected function applyValue(FormInput $component, ilTemplate|Template $tpl, callable $escape = null): void
+    protected function applyValue(FormInput $component, $tpl, callable $escape = null): void
     {
         $value = $component->getValue();
         if (!is_null($escape)) {
@@ -124,7 +127,7 @@ class Renderer extends RendererILIAS
 
     private function getTemplateCustom(string $name): ilTemplate
     {
-        return new ilTemplate("Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/SurILIASReset/templates/Component/Input/Field/$name", true, true);
+        return new ilTemplate("Customizing/global/plugins/Services/Cron/CronHook/SurILIASReset/templates/Component/Input/Field/$name", true, true);
     }
 
     /**
