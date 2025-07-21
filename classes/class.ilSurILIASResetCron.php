@@ -59,7 +59,7 @@ class ilSurILIASResetCron extends ilCronJob
             $result = $DIC->database()->query($query);
 
             while ($row = $result->fetchAssoc()) {
-                $schedule = new Schedule($row['id']);
+                $schedule = new Schedule((int) $row['id']);
 
                 if ($schedule->shouldRun()) {
                     $schedule->run();
