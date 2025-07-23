@@ -1,0 +1,115 @@
+cron_title#:#Lernfortschritt zurücksetzen
+cron_description#:#Dieser Cron-Job setzt den Lernfortschritt der in den Plugineinstellungen ausgewählten Objekte zurück.
+list#:#Liste
+new_schedule#:#Neuer Zeitplan
+name#:#Name
+count_of_programs_or_courses#:#Anzahl der Programme/Kurse
+users#:#Benutzer
+frequency#:#Frequenz
+actions#:#Aktionen
+frequency_manual#:#Manuell
+frequency_automatic#:#Automatisch
+frequency_invalid_data#:#Ungültige Frequenzdaten
+frequency_daily_single#:#Jeden Tag
+frequency_daily_multiple#:#Alle %s Tage
+frequency_weekly_single#:#Jede Woche
+frequency_weekly_multiple#:#Alle %s Wochen
+frequency_monthly#:#Am %s eines jeden Monats
+frequency_monthly_invalid#:#Ungültige monatliche Frequenz (Tag fehlt)
+frequency_monthly_invalid_day#:#Ungültiger Tag für monatliche Frequenz
+frequency_day_of_week#:#Jeden %s
+frequency_day_of_week_invalid#:#Ungültige Wochenfrequenz (Tag fehlt)
+frequency_day_of_week_invalid_index#:#Ungültiger Tagindex für Wochenfrequenz
+frequency_day_of_year#:#Am %s %s jedes Jahr
+frequency_day_of_year_invalid#:#Ungültige Jahresfrequenz (Tag oder Monat fehlt)
+frequency_day_of_year_invalid_month#:#Ungültiger Monat für Jahresfrequenz
+frequency_day_of_year_invalid_day#:#Ungültiger Tag für Jahresfrequenz
+frequency_yearly_single#:#Jedes Jahr
+frequency_yearly_multiple#:#Alle %s Jahre
+frequency_hourly_single#:#Jede Stunde
+frequency_hourly_multiple#:#Alle %s Stunden
+frequency_minutely_single#:#Jede Minute
+frequency_minutely_multiple#:#Alle %s Minuten
+frequency_unknown_type#:#Unbekannter Frequenztyp: %s
+frequency_day_monday#:#Montag
+frequency_day_tuesday#:#Dienstag
+frequency_day_wednesday#:#Mittwoch
+frequency_day_thursday#:#Donnerstag
+frequency_day_friday#:#Freitag
+frequency_day_saturday#:#Samstag
+frequency_day_sunday#:#Sonntag
+frequency_month_january#:#Januar
+frequency_month_february#:#Februar
+frequency_month_march#:#März
+frequency_month_april#:#April
+frequency_month_may#:#Mai
+frequency_month_june#:#Juni
+frequency_month_july#:#Juli
+frequency_month_august#:#August
+frequency_month_september#:#September
+frequency_month_october#:#Oktober
+frequency_month_november#:#November
+frequency_month_december#:#Dezember
+frequency_ordinal_st#:#.
+frequency_ordinal_nd#:#.
+frequency_ordinal_rd#:#.
+frequency_ordinal_th#:#.
+all_users#:#Alle Benutzer
+all_users_except#:#Alle Benutzer außer
+select_excluded_users#:#Ausgeschlossene Benutzer auswählen
+specific_users#:#Bestimmte Benutzer
+users_by_role#:#Benutzer nach Rolle
+delete_confirmation#:#Möchten Sie diesen Zeitplan wirklich löschen?
+email_enabled#:#E-Mail-Benachrichtigungen aktiviert
+days_in_advance#:#Tage im Voraus
+template#:#Vorlage
+template_info#:#Schreiben Sie eine E-Mail-Nachricht, die im Voraus an die Benutzer gesendet wird. Sie können folgende Platzhalter verwenden: [login] für den Benutzernamen, [name] für den vollständigen Namen des Benutzers, [firstname] für den Vornamen, [lastname] für den Nachnamen, [date] für das Datum des Zurücksetzens und [time] für die Uhrzeit des Zurücksetzens.
+subject#:#Betreff
+subject_info#:#Geben Sie einen Betreff für die E-Mail-Benachrichtigung an.
+notifications#:#Benachrichtigungen
+frequency_type#:#Frequenztyp
+daily#:#Täglich
+weekly#:#Wöchentlich
+monthly#:#Monatlich
+yearly#:#Jährlich
+day_of_week#:#Wochentag
+day_of_year#:#Tag im Jahr
+hourly#:#Stündlich
+minutely#:#Minütlich
+interval#:#Intervall
+day#:#Tag
+month#:#Monat
+objects#:#Objekte
+select_objects#:#Objekte zum Zurücksetzen auswählen
+select_objects_info#:#Wählen Sie die Objekte aus, für die der Lernfortschritt zurückgesetzt werden soll. Sie können mehrere Objekte auswählen.
+users#:#Benutzer
+users_info#:#Benutzer, die diese Bedingungen erfüllen, sind betroffen
+select_role#:#Rolle auswählen
+select_specific_users#:#Bestimmte Benutzer auswählen
+select#:#Auswählen
+schedule_saved#:#Zeitplan erfolgreich gespeichert
+schedule_save_failed#:#Speichern des Zeitplans fehlgeschlagen
+run#:#Ausführen
+schedule_run_failed#:#Ausführen des Zeitplans fehlgeschlagen
+schedule_run_success#:#Zeitplan erfolgreich ausgeführt
+run_confirmation#:#Möchten Sie diesen Zeitplan wirklich ausführen? Weitere Informationen unten.
+schedule_info#:#Informationen zum Zeitplan
+user#:#Benutzer
+role#:#Rolle
+notification_manual#:#Manuelle Benachrichtigung (optional)
+notification_manual_info#:#Wenn Sie eine manuelle Benachrichtigung an die Benutzer senden möchten, können Sie hier eine Nachricht schreiben. Lassen Sie das Feld leer, wenn keine Benachrichtigung gesendet werden soll. Sie können folgende Platzhalter verwenden: [login] für den Benutzernamen, [name] für den vollständigen Namen des Benutzers, [firstname] für den Vornamen und [lastname] für den Nachnamen.
+last_run#:#Letzte Ausführung
+back_to_list#:#Zurück zur Liste
+execution_history#:#Ausführungsverlauf
+count_of_affected_users#:#Anzahl betroffener Benutzer
+duration#:#Dauer
+method#:#Methode
+method_manual#:#Manuell
+method_automatic#:#Automatisch
+execution_details#:#Ausführungsdetails
+back_to_history#:#Zurück zum Verlauf
+execution_not_found#:#Ausführung nicht gefunden
+affected_users#:#Betroffene Benutzer
+affected_objects#:#Betroffene Objekte
+notification_subject#:#Benachrichtigungsbetreff
+notification_subject_manual#:#Benachrichtigungsbetreff (optional)
