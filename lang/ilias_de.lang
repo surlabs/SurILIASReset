@@ -113,3 +113,6 @@ affected_users#:#Betroffene Benutzer
 affected_objects#:#Betroffene Objekte
 notification_subject#:#Benachrichtigungsbetreff
 notification_subject_manual#:#Benachrichtigungsbetreff (optional)
+date#:#Datum
+has_one_item_error#:#Es ist notwendig, mindestens ein Element auszuwählen
+schedule_deleted#:#Zeitplan erfolgreich gelöscht

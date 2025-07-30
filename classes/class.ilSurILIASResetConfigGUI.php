@@ -379,7 +379,7 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                 $this->plugin->txt('select_objects'),
                 $this->plugin->txt('select_objects_info'),
                 ['crs', 'prg']
-            )->withRequired(true)->withValue($schedule ? $schedule->getObjectsData() : [])
+            )->withRequired(true)->withValue($schedule ? ($schedule->getObjectsData() ?? []) : [])
         ], $this->plugin->txt('objects'));
 
         $users = $this->factory->input()->field()->switchableGroup([
@@ -564,6 +564,10 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             $schedule->saveUsersData($data['users']['users'][1] ?? []);
 
             $this->tpl->setOnScreenMessage("success", $this->plugin->txt("schedule_saved"), true);
+
+            if (empty($data['id'])) {
+               $this->ctrl->redirect($this, 'configure');
+            }
         } catch (Exception) {
             $this->tpl->setOnScreenMessage("failure", $this->plugin->txt("schedule_save_failed"), true);
         }
