@@ -114,3 +114,5 @@ affected_objects#:#Affected objects
 notification_subject#:#Notification subject
 notification_subject_manual#:#Notification subject (Optional)
 date#:#Date
+has_one_item_error#:#Its necessary to select at least one item
+schedule_deleted#:#Schedule deleted successfully

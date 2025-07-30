@@ -23,6 +23,7 @@ use ilObject;
 use ilObjectFactory;
 use ilObjectNotFoundException;
 use LogicException;
+use SurILIASReset\classes\ui\Component\HasOneItem;
 
 /**
  * Class ObjectSelector
@@ -165,6 +166,8 @@ class ObjectSelector implements Text, FormInputInternal
         if (is_string($value)) {
             $value = json_decode($value, true);
         }
+
+        $value = $value ?? [];
 
         $this->checkArg("value", $this->isClientSideValueOk($value), "Display value does not match input type.");
 
@@ -378,10 +381,25 @@ class ObjectSelector implements Text, FormInputInternal
 
     private function getOperations(): Generator
     {
+        if ($this->isRequired()) {
+            $op = $this->getConstraintForRequirement();
+            if ($op !== null) {
+                yield $op;
+            }
+        }
+
         foreach ($this->operations as $op) {
             yield $op;
         }
     }
+
+    protected function getConstraintForRequirement(): HasOneItem
+    {
+        return new HasOneItem(
+            $this->data_factory
+        );
+    }
+
 
     public function getContent()
     {
