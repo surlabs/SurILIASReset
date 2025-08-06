@@ -42,6 +42,8 @@ class Schedule
     private int $days_in_advance = 0;
     private string $notification_subject = '';
     private string $notification_template = '';
+    private ?string $after_restart_subject = '';
+    private ?string $after_restart_template = '';
     private ?string $last_run;
     private ?string $last_notification;
     private ilLogger $logger;
@@ -93,6 +95,8 @@ class Schedule
             $this->days_in_advance = (int) $record['days_in_advance'];
             $this->notification_subject = $record['notification_subject'] ?? '';
             $this->notification_template = $record['notification_template'] ?? '';
+            $this->after_restart_subject = $record['after_restart_subject'] ?? '';
+            $this->after_restart_template = $record['after_restart_template'] ?? '';
             $this->last_run = $record['last_run'] ?? null;
             $this->last_notification = $record['last_notification'] ?? null;
         } else {
@@ -144,6 +148,8 @@ class Schedule
             'days_in_advance' => ['integer', $this->days_in_advance],
             'notification_subject' => ['text', $this->notification_subject],
             'notification_template' => ['text', $this->notification_template],
+            'after_restart_subject' => ['text', $this->after_restart_subject],
+            'after_restart_template' => ['text', $this->after_restart_template],
             'last_run' => ['timestamp', $this->last_run ?? null],
             'last_notification' => ['timestamp', $this->last_notification ?? null],
 
@@ -165,6 +171,8 @@ class Schedule
             'days_in_advance' => ['integer', $this->days_in_advance],
             'notification_subject' => ['text', $this->notification_subject],
             'notification_template' => ['text', $this->notification_template],
+            'after_restart_subject' => ['text', $this->after_restart_subject],
+            'after_restart_template' => ['text', $this->after_restart_template],
             'last_run' => ['timestamp', $this->last_run ?? null],
             'last_notification' => ['timestamp', $this->last_notification ?? null],
         ], [
@@ -263,6 +271,26 @@ class Schedule
     public function setNotificationTemplate(string $template): void
     {
         $this->notification_template = $template;
+    }
+    
+    public function getAfterRestartSubject(): string
+    {
+        return $this->after_restart_subject;
+    }
+
+    public function setAfterRestartSubject(string $subject): void
+    {
+        $this->after_restart_subject = $subject;
+    }
+
+    public function getAfterRestartTemplate(): string
+    {
+        return $this->after_restart_template;
+    }
+
+    public function setAfterRestartTemplate(string $text): void
+    {
+        $this->after_restart_template = $text;
     }
 
     public function getLastRun(): ?string
@@ -735,6 +763,8 @@ class Schedule
                     if ($lp_obj instanceof ilTestLP) {
                         $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
                     }
+                } elseif ($object['type'] === 'prg') {
+                    $this->resetPointsForProgramme($obj_id);
                 }
 
                 $lp_obj->resetLPDataForCompleteObject();
@@ -755,6 +785,8 @@ class Schedule
                     if ($lp_obj instanceof ilTestLP) {
                         $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
                     }
+                } elseif ($object['type'] === 'prg') {
+                    $this->resetPointsForProgramme($obj_id, $user_ids);
                 }
 
                 $lp_obj->resetLPDataForUserIds($user_ids);
@@ -786,6 +818,8 @@ class Schedule
                     if ($lp_obj instanceof ilTestLP) {
                         $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
                     }
+                } elseif ($object['type'] === 'prg') {
+                    $this->resetPointsForProgramme($obj_id, $user_ids_filtered);
                 }
 
                 $lp_obj->resetLPDataForUserIds($user_ids_filtered);
@@ -809,6 +843,8 @@ class Schedule
                     if ($lp_obj instanceof ilTestLP) {
                         $lp_obj->setTestObject(new ilObjTest($object['ref_id']));
                     }
+                } elseif ($object['type'] === 'prg') {
+                    $this->resetPointsForProgramme($obj_id, $user_ids);
                 }
 
                 $lp_obj->resetLPDataForUserIds($user_ids);
@@ -1010,4 +1046,20 @@ private function calculateDateAndTime(): array
         return [$date, $time];
     }
 
+    private function resetPointsForProgramme(int $obj_id, ?array $user_ids = null)
+    {
+        global $DIC;
+
+        $db = $DIC->database();
+
+        if (isset($user_ids)) {
+            $query = /** @lang text */ "DELETE FROM prg_usr_progress WHERE prg_id = %s AND usr_id IN (%s)";
+
+            $db->manipulateF($query, ['integer', 'text'], [$obj_id, implode(',', $user_ids)]);
+        } else {
+            $query =/** @lang text */ "DELETE FROM prg_usr_progress WHERE prg_id = %s";
+
+            $db->manipulateF($query, ['integer'], [$obj_id]);
+        }
+    }
 }

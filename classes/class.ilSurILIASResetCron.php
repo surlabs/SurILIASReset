@@ -63,6 +63,11 @@ class ilSurILIASResetCron extends ilCronJob
 
                 if ($schedule->shouldRun()) {
                     $schedule->run();
+
+                    $schedule->sendNotification(
+                        $schedule->getAfterRestartSubject(),
+                        $schedule->getAfterRestartTemplate()
+                    );
                 }
 
                 if ($schedule->shouldNotify()) {

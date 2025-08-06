@@ -5,7 +5,6 @@ declare(strict_types=1);
 use ILIAS\UI\Component\Input\Field\Group;
 use ILIAS\UI\Factory;
 use ILIAS\UI\Renderer;
-use ILIAS\UI\URLBuilder;
 use SurILIASReset\classes\objects\Schedule;
 use SurILIASReset\classes\objects\ScheduleExecutionResult;
 use SurILIASReset\classes\ui\Component\CustomFactory;
@@ -394,6 +393,12 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
                 ->withValue($schedule ? $schedule->getNotificationTemplate() : "")->withAdditionalOnLoadCode(function ($id) {
                     return "initEmailPreview('$id')";
                 }),
+            "after_restart_subject" => $this->factory->input()->field()->text($this->plugin->txt('after_restart_subject'), $this->plugin->txt('after_restart_subject_info'))
+                ->withValue($schedule ? $schedule->getAfterRestartSubject() : ""),
+            "after_restart_template" => $this->factory->input()->field()->textarea($this->plugin->txt('after_restart_template'), $this->plugin->txt('after_restart_template_info'))
+                ->withValue($schedule ? $schedule->getAfterRestartTemplate() : "")->withAdditionalOnLoadCode(function ($id) {
+                    return "initEmailPreview('$id')";
+                }),
         ], $this->plugin->txt('notifications'));
 
         return $inputs;
@@ -498,6 +503,8 @@ class ilSurILIASResetConfigGUI extends ilPluginConfigGUI
             $schedule->setDaysInAdvance((int)($data['notifications']['days_in_advance'] ?? 0));
             $schedule->setNotificationSubject($data['notifications']['subject'] ?? '');
             $schedule->setNotificationTemplate($data['notifications']['template'] ?? '');
+            $schedule->setAfterRestartSubject($data['notifications']['after_restart_subject'] ?? '');
+            $schedule->setAfterRestartTemplate($data['notifications']['after_restart_template'] ?? '');
 
             $schedule->save();
 

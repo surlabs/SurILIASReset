@@ -84,3 +84,25 @@ if (!$db->tableExists('silr_objects_affected')) {
     $db->addPrimaryKey('silr_objects_affected', ['execution_id', 'object_id']);
 }
 ?>
+<#2>
+<?php
+global $DIC;
+
+$db = $DIC->database();
+
+if (!$db->tableColumnExists('silr_schedules', 'after_restart_subject')) {
+    $db->addTableColumn('silr_schedules', 'after_restart_subject', [
+        'type' => 'text',
+        'notnull' => false,
+        'default' => null
+    ]);
+}
+
+if (!$db->tableColumnExists('silr_schedules', 'after_restart_template')) {
+    $db->addTableColumn('silr_schedules', 'after_restart_template', [
+        'type' => 'text',
+        'notnull' => false,
+        'default' => null
+    ]);
+}
+?>
