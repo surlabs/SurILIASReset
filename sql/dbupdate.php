@@ -15,8 +15,8 @@ if (!$db->tableExists('silr_schedules')) {
         'days_in_advance' => ['type' => 'integer'],
         'notification_subject' => ['type' => 'text'],
         'notification_template' => ['type' => 'text'],
-        'last_run' => ['type' => 'timestamp', 'notnull' => false, 'default' => 'NULL'],
-        'last_notification' => ['type' => 'timestamp', 'notnull' => false, 'default' => 'NULL'],
+        'last_run' => ['type' => 'timestamp', 'notnull' => false],
+        'last_notification' => ['type' => 'timestamp', 'notnull' => false],
     ]);
 
     $db->addPrimaryKey('silr_schedules', ['id']);
