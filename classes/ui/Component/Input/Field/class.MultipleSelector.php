@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Customizing\global\plugins\Services\UIComponent\UserInterfaceHook\SurILIASReset\classes\ui\Component\Input\Field;
 
 use Closure;
+use Generator;
 use ILIAS\Data\Factory;
 use ILIAS\Refinery\Constraint;
 use ILIAS\UI\Component\Input\Field\Hidden;
@@ -12,7 +13,6 @@ use ILIAS\UI\Component\Signal;
 use ILIAS\UI\Implementation\Component\Input\Input;
 use ILIAS\UI\Implementation\Component\JavaScriptBindable;
 use ILIAS\UI\Implementation\Component\Triggerer;
-use LogicException;
 use SurILIASReset\classes\ui\Component\HasOneItem;
 
 /**
@@ -151,126 +151,12 @@ class MultipleSelector extends Input implements Hidden
         return $this->options;
     }
 
-    public function isComplex(): bool
-    {
-        return false;
-    }
-
-    public function getError()
-    {
-        return $this->error;
-    }
-
-    public function withError($error)
-    {
-        $clone = clone $this;
-        $clone->setError($error);
-
-        return $clone;
-    }
-
-    private function setError($error)
-    {
-        $this->checkStringArg("error", $error);
-        $this->error = $error;
-    }
-
-    public function getValue()
-    {
-        return $this->value;
-    }
-
-    public function withAdditionalTransformation(Transformation $trafo)
-    {
-        $clone = clone $this;
-        $clone->setAdditionalTransformation($trafo);
-
-        return $clone;
-    }
-
-    protected function setAdditionalTransformation(Transformation $trafo)
-    {
-        $this->operations[] = $trafo;
-        if ($this->content !== null) {
-            if (!$this->content->isError()) {
-                $this->content = $trafo->applyTo($this->content);
-            }
-            if ($this->content->isError()) {
-                $this->setError($this->content->error());
-            }
-        }
-    }
-
-    public function withNameFrom(NameSource $source)
-    {
-        $clone = clone $this;
-        $clone->name = $source->getNewName();
-
-        return $clone;
-    }
-
-    public function getName()
-    {
-        return $this->name;
-    }
-
-    public function withInput(InputData $input)
-    {
-        if ($this->getName() === null) {
-            throw new LogicException("Can only collect if input has a name.");
-        }
-
-        //TODO: Discuss, is this correct here. If there is no input contained in this post
-        //We assign null. Note that unset checkboxes are not contained in POST.
-        if (!$this->isDisabled()) {
-            $value = $input->getOr($this->getName(), null);
-            // ATTENTION: There was a special case for the Filter Input Container here,
-            // which lead to #27909. The issue will most certainly appear again in. If
-            // you are the one debugging it and came here: Please don't put knowledge
-            // of the special case for the filter in this general class. Have a look
-            // into https://mantis.ilias.de/view.php?id=27909 for the according discussion.
-            $clone = $this->withValue($value);
-        } else {
-            $clone = $this;
-        }
-
-        $clone->content = $this->applyOperationsTo($clone->getValue());
-        if ($clone->content->isError()) {
-            $error = $clone->content->error();
-            if ($error instanceof Exception) {
-                $error = $error->getMessage();
-            }
-            return $clone->withError("" . $error);
-        }
-
-        return $clone;
-    }
-
-    protected function applyOperationsTo($res)
-    {
-        if ($res === null && !$this->isRequired()) {
-            return $this->data_factory->ok($res);
-        }
-
-        $res = $this->data_factory->ok($res);
-        foreach ($this->getOperations() as $op) {
-            if ($res->isError()) {
-                return $res;
-            }
-
-            $res = $op->applyTo($res);
-        }
-
-        return $res;
-    }
-
-    private function getOperations(): Generator
+    protected function getOperations(): Generator
     {
         if ($this->isRequired()) {
             $op = $this->getConstraintForRequirement();
-            if ($op !== null) {
-                yield $op;
-            }
+
+            yield $op;
         }
 
         foreach ($this->operations as $op) {
@@ -283,13 +169,5 @@ class MultipleSelector extends Input implements Hidden
         return new HasOneItem(
             $this->data_factory
         );
-    }
-
-    public function getContent()
-    {
-        if (is_null($this->content)) {
-            throw new LogicException("No content of this field has been evaluated yet. Seems withRequest was not called.");
-        }
-        return $this->content;
     }
 }
