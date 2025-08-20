@@ -28,12 +28,12 @@ function initEmailPreview(id) {
 
     function replacePlaceholders(text) {
         var placeholders = {
-            '[login]': 'surlabs',
-            '[name]': 'Sur Labs',
-            '[firstname]': 'Sur',
-            '[lastname]': 'Labs',
-            '[date]': new Date().toLocaleDateString('en-GB'),
-            '[time]': new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit'})
+            '[login]': '[login]',
+            '[name]': '[name]',
+            '[firstname]': '[firstname]',
+            '[lastname]': '[lastname]',
+            '[date]': '[date]',
+            '[time]': '[time]',
         };
 
         var result = text;
